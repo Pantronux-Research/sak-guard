@@ -1,0 +1,9 @@
+- id: sak-guard
+  name: sak-guard (Solana agent static security)
+  description: Static pre-commit security check for Solana agent and client code.
+  entry: sak-guard
+  language: python
+  types_or: [python]
+  args: ["--fail-on", "high"]
+  pass_filenames: true
+  require_serial: false
