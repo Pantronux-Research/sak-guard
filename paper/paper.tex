@@ -3,7 +3,12 @@
 %%  Compile:  pdflatex paper && bibtex paper && pdflatex paper && pdflatex paper
 %%  or:       latexmk -pdf paper.tex
 %%
-%%  References are embedded via filecontents* so this is a single-file build.
+%%  References are embedded via filecontents* so this builds from one file.
+%%  TRAP: filecontents* does NOT overwrite an existing references.bib. A stale copy
+%%  silently shadows the embedded block and bibtex then drops whatever changed in it
+%%  WITHOUT any warning -- the citation just reports undefined while the block looks
+%%  correct. Use ./build.sh, which clears the generated files first, rather than
+%%  invoking pdflatex by hand on a tree that already has a references.bib in it.
 %% ---------------------------------------------------------------------------
 \begin{filecontents*}{references.bib}
 %% ===== Cluster D: the author's prior methodological foundation =====
@@ -19,13 +24,15 @@
   doi     = {10.1016/j.procs.2021.12.117}
 }
 
-@inproceedings{firmansyah2023forensic,
+@inproceedings{firmansyah2024forensic,
   title     = {Forensic Analysis Model on Fintech E-Wallet Using Digital Evidence Generalization},
   author    = {Firmansyah, Irfan Achmad and Cahyani, Niken Dwi Wahyu and Afianti, Farah},
-  booktitle = {{IEEE} Conference Proceedings},
-  year      = {2023},
+  booktitle = {2024 International Conference on Intelligent Cybernetics Technology
+               and Applications ({ICICYTA})},
+  year      = {2024},
   address   = {Bandung, Indonesia},
-  note      = {Faculty of Computing, Telkom University. DOI to be confirmed by the author}
+  publisher = {{IEEE}},
+  doi       = {10.1109/icicyta64807.2024.10913020}
 }
 
 %% ===== Cluster A: AI-agent security and tool-use vulnerabilities =====
@@ -266,6 +273,8 @@
 \usepackage{url}
 \usepackage[hidelinks]{hyperref}
 
+
+
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 
@@ -385,7 +394,7 @@ its observable trust properties, not of its capability. An autonomous agent
 that can move funds is precisely such a system, and its credibility is
 determined by properties a reviewer can inspect in the source.
 
-In \cite{firmansyah2023forensic} we developed a forensic analysis model for
+In \cite{firmansyah2024forensic} we developed a forensic analysis model for
 fintech e-wallet applications, using an RDF ontology to generalise acquired
 digital evidence across User, Transaction and Merchant entities so that
 investigative questions could be answered from heterogeneous application data.
@@ -662,7 +671,7 @@ so a self-authored corpus cannot measure false-positive load; this follows the
 methodological requirement established for learned false-positive reduction
 \cite{yang2024falsepositives} and the same reasoning that motivated
 ontology-driven evidence generalisation in our forensic work
-\cite{firmansyah2023forensic}. The corpus is third-party code under its own
+\cite{firmansyah2024forensic}. The corpus is third-party code under its own
 licence and is consequently not vendored into our repository; the revision is
 recorded so the run is reproducible.
 
@@ -831,7 +840,7 @@ possibility of bias toward our own patterns. We mitigate this by publishing
 every finding with its line and file, so the classification is falsifiable by
 any reader against the recorded revision---the same transparency argument that
 motivated generalised, inspectable evidence in our forensic work
-\cite{firmansyah2023forensic}. Independent adjudication is the correct
+\cite{firmansyah2024forensic}. Independent adjudication is the correct
 strengthening and is left as future work.
 
 \paragraph{Baseline-threat scope}
@@ -861,7 +870,7 @@ practitioner which rules to trust.
 The work descends directly from our prior research. The adoption study
 \cite{firmansyah2022efficacy} established that trust in a value-bearing
 automated system is a function of observable trust properties; the forensic
-model \cite{firmansyah2023forensic} established that heterogeneous artifacts
+model \cite{firmansyah2024forensic} established that heterogeneous artifacts
 must be mapped to a common abstraction before anomalies are detectable. This
 paper is the synthesis of both for the autonomous-agent setting, and it
 inverts the earlier question: rather than reconstructing what a compromised
