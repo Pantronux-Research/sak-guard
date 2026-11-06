@@ -324,6 +324,20 @@ def analyze_code(code: str, intent: str, language: str = "python", use_llm: bool
     all_issues.extend(intent_issues)
 
     # Calculate confidence
+    # De-duplicate here, at the single point where every channel's issues meet.
+    # This was previously placed inside analyze_intent, so findings emitted by
+    # analyze_patterns (notably base:off_by_one) were never deduplicated -- the same
+    # finding appeared three times on one line. Dedupe where the streams merge, not
+    # inside one of them.
+    _seen, _uniq = set(), []
+    for _i in all_issues:
+        _k = (_i.get("description"), _i.get("line"), _i.get("severity"))
+        if _k in _seen:
+            continue
+        _seen.add(_k)
+        _uniq.append(_i)
+    all_issues = _uniq
+
     confidence = calculate_confidence(all_issues, llm_used=llm_used)
 
     # Determine pass/fail
@@ -500,19 +514,79 @@ def analyze_patterns(code: str, language: str) -> List[Dict]:
                 "suggestion": f"Add '{var_name} -= 1' or similar modification inside the loop body",
             })
 
-    # Off-by-one in range — check if intent mentions inclusive
-    if "range(" in full_code:
-        range_matches = re.findall(r'range\((\w+)\)', full_code)
-        for var in range_matches:
-            # This could be off-by-one if the intent requires inclusive range
-            line_num = next((i for i, l in enumerate(lines, 1) if f'range({var})' in l), 0)
-            issues.append({
-                "type": "off_by_one",
-                "severity": "medium",
-                "line": line_num,
-                "description": f"range({var}) produces values 0 to {var}-1. If inclusive range is needed, use range(1, {var}+1)",
-                "suggestion": f"Check if range should be range(1, {var}+1) for 1 to {var} inclusive",
-            })
+    # Off-by-one in range -- flag only shapes that actually smell.
+    #
+    # `range(n)` is idiomatic Python, not a defect: an exclusive bound is what you want
+    # far more often than not, and whether the caller wanted inclusive is not knowable
+    # from the source. The previous version flagged every `range(<name>)` unconditionally,
+    # which made this the worst rule in the bank -- on real upstream code it produced 3 of
+    # 6 false positives, all the same `range(max_retries)` line.
+    #
+    # What genuinely suggests an off-by-one is an ADJUSTED bound, or a comparison that
+    # uses `<=` against the loop subject. Both are signals in the source, not guesses
+    # about intent.
+    # Use the AST for the adjusted-bound shape: a regex cannot see past the nested
+    # parenthesis in range(len(x) + 1), so it silently missed exactly the case it was
+    # written to catch. Structural question -> parser, not pattern.
+    import ast as _ast2
+    try:
+        _tree = _ast2.parse(full_code)
+    except SyntaxError:
+        _tree = None
+    if _tree is not None:
+        for node in _ast2.walk(_tree):
+            if not (isinstance(node, _ast2.Call)
+                    and isinstance(node.func, _ast2.Name)
+                    and node.func.id == "range"):
+                continue
+            for arg in node.args:
+                adj = (isinstance(arg, _ast2.BinOp)
+                       and isinstance(arg.op, _ast2.Add)
+                       and isinstance(arg.right, _ast2.Constant)
+                       and arg.right.value == 1)
+                if adj:
+                    issues.append({
+                        "type": "off_by_one",
+                        "severity": "medium",
+                        "line": getattr(node, "lineno", 0),
+                        "description": "range() upper bound is unconditionally +1 -- a "
+                                       "common off-by-one shape (an extra iteration)",
+                        "suggestion": "Check whether the +1 is correct; prefer range(len(x)) "
+                                      "over range(len(x) + 1).",
+                    })
+                    break
+    if _tree is not None:
+        import ast as _a
+        for fnode in _a.walk(_tree):
+            if not isinstance(fnode, _a.For):
+                continue
+            if not (isinstance(fnode.iter, _a.Call)
+                    and isinstance(fnode.iter.func, _a.Name)
+                    and fnode.iter.func.id == "range"):
+                continue
+            if not isinstance(fnode.target, _a.Name):
+                continue
+            subject = fnode.target.id
+            for sub in _a.walk(fnode):
+                # The loop subject is the LEFT operand of `i <= bound`, not a
+                # comparator -- checking comparators for it was inverted and matched
+                # nothing. Require: left is the loop subject, op is LtE, and the
+                # right side is a name (the bound being compared against).
+                if (isinstance(sub, _a.Compare)
+                        and isinstance(sub.left, _a.Name)
+                        and sub.left.id == subject
+                        and any(isinstance(op, _a.LtE) for op in sub.ops)
+                        and any(isinstance(c, _a.Name) for c in sub.comparators)):
+                    issues.append({
+                        "type": "off_by_one",
+                        "severity": "medium",
+                        "line": getattr(fnode, "lineno", 0),
+                        "description": f"Loop over range() compares '{subject}' with `<=`, "
+                                       "which admits one value past the iterated bound",
+                        "suggestion": "Use `<` against the exclusive bound, or widen the "
+                                      "range explicitly to show the intent.",
+                    })
+                    break
 
     # Missing return in function that should return a value
     func_defs = re.findall(r'def\s+(\w+)\([^)]*\):', full_code)
@@ -781,16 +855,6 @@ def analyze_intent(code: str, intent: str, language: str) -> List[Dict]:
             "suggestion": "Implement the function logic as described in the intent",
         })
 
-    # De-duplicate: the same rule can emit an identical finding more than once
-    # (observed: `range(max_retries)` reported 3x on one line). A repeated finding
-    # trains the user to skim, which is how real findings get missed.
-    _seen, _uniq = set(), []
-    for _i in issues:
-        _k = (_i.get("description"), _i.get("line"), _i.get("severity"))
-        if _k in _seen:
-            continue
-        _seen.add(_k); _uniq.append(_i)
-    issues = _uniq
     return issues
 
 
