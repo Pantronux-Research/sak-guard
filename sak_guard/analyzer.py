@@ -441,9 +441,16 @@ def _ast_division_lines(code: str):
     lines = set()
     for node in _ast.walk(tree):
         if isinstance(node, _ast.BinOp) and isinstance(node.op, _ast.Div):
-            # divisor must be a variable/expression, not a plain literal like /2
-            if not isinstance(node.right, _ast.Constant):
-                lines.add(getattr(node, "lineno", 0))
+            # divisor must be a genuine runtime variable. Excluded:
+            #  - plain literals (/2)
+            #  - module-level UPPER_CASE constants (LAMPORTS_PER_SOL): those are
+            #    fixed at import and are never zero, so flagging them is noise.
+            right = node.right
+            if isinstance(right, _ast.Constant):
+                continue
+            if isinstance(right, _ast.Name) and right.id.isupper():
+                continue
+            lines.add(getattr(node, "lineno", 0))
     return lines
 
 
@@ -774,6 +781,16 @@ def analyze_intent(code: str, intent: str, language: str) -> List[Dict]:
             "suggestion": "Implement the function logic as described in the intent",
         })
 
+    # De-duplicate: the same rule can emit an identical finding more than once
+    # (observed: `range(max_retries)` reported 3x on one line). A repeated finding
+    # trains the user to skim, which is how real findings get missed.
+    _seen, _uniq = set(), []
+    for _i in issues:
+        _k = (_i.get("description"), _i.get("line"), _i.get("severity"))
+        if _k in _seen:
+            continue
+        _seen.add(_k); _uniq.append(_i)
+    issues = _uniq
     return issues
 
 

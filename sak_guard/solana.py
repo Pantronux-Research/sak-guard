@@ -135,7 +135,17 @@ def ps_sol_1(tree: ast.AST, source: str) -> List[Dict]:
         # 1d -- key-like name interpolated into a log / f-string / format
         if isinstance(node, ast.JoinedStr):
             for v in node.values:
-                if isinstance(v, ast.FormattedValue):
+                if not isinstance(v, ast.FormattedValue):
+                    continue
+                # A PUBLIC key is meant to be printed. `logger.info(f"{kp.pubkey()}")`
+                # is correct code; only the secret must never be interpolated.
+                _expr = v.value
+                if (isinstance(_expr, ast.Call)
+                        and isinstance(_expr.func, ast.Attribute)
+                        and _expr.func.attr in ("pubkey", "public_key", "to_string",
+                                                "str", "hex", "key")):
+                    continue
+                if True:
                     for n in _names(v.value):
                         if KEY_NAMES.search(n):
                             out.append({
