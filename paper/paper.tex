@@ -519,6 +519,7 @@ by a submission at line $s$:
 \begin{equation}
 \mathrm{stale}(b,s) \iff b < s \;\wedge\; \exists\, g:\;
 b < \mathrm{line}(g) < s \;\wedge\; g \in \mathcal{S},
+\label{eq:stale}
 \end{equation}
 
 where $\mathcal{S}$ is the set of slow-call vocabulary ($\texttt{send}$,
@@ -550,6 +551,7 @@ parsing and access operations:
 
 \begin{equation}
 x \in T \;\wedge\; y \leftarrow \mathrm{peel}(x) \;\Rightarrow\; y \in T,
+\label{eq:taint}
 \end{equation}
 
 where $\mathrm{peel}$ denotes subscript or attribute access. This rule is
@@ -564,6 +566,7 @@ position:
 \begin{equation}
 \mathrm{violation} \iff \exists\, x \in T,\; c:\;
 x \in A(c) \;\wedge\; f(c) \in \mathcal{P},
+\label{eq:violation}
 \end{equation}
 
 with $\mathcal{P} = \{\texttt{Pubkey}, \texttt{transfer},
@@ -583,6 +586,7 @@ find division by an unchecked variable:
 \begin{equation}
 \mathrm{flag}(\ell) \iff \exists\, m:\; \mathrm{match}(r_{\div}, \ell)
 \;\wedge\; \neg\,\mathrm{guarded}(\ell).
+\label{eq:rawflag}
 \end{equation}
 
 Applied to the \emph{raw text} of a line, the operator token is
@@ -599,6 +603,7 @@ not lexical. It is resolved by gating the rule on the parse tree:
 \begin{equation}
 \mathrm{flag}(\ell) \iff \ell \in L_{\div}(P) \;\wedge\;
 \mathrm{match}(r_{\div},\ell) \;\wedge\; \neg\,\mathrm{guarded}(\ell),
+\label{eq:gated}
 \end{equation}
 
 where $L_{\div}(P) = \{\mathrm{lineno}(n) : n \in P,\;
