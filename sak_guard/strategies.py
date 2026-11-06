@@ -17,6 +17,7 @@ import re
 import logging
 from typing import Dict, List
 
+from .solana import scan_solana
 from .analyzer import (
     analyze_code,
     analyze_syntax,
@@ -216,6 +217,13 @@ def _strategy_security_focused(code: str, intent: str, language: str) -> dict:
     critical_or_high = [i for i in all_issues if i.get("severity") in ("critical", "high")]
     passed = len(critical_or_high) == 0
     suggestions = generate_suggestions(all_issues, code)
+
+    # Solana client/agent patterns (PS-SOL-1..3). Reuses the same result shape so
+    # the CLI and exit-code contract are unchanged. On non-Solana input every
+    # pattern returns 'n/a' and this is a no-op.
+    _sol = scan_solana(code)
+    if _sol.get("issues"):
+        all_issues.extend(_sol["issues"])
 
     return {
         "issues": all_issues,

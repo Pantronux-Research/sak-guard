@@ -420,8 +420,36 @@ def analyze_syntax(code: str, language: str) -> List[Dict]:
     return issues
 
 
+def _ast_division_lines(code: str):
+    """Line numbers carrying a REAL division (BinOp with ast.Div).
+
+    The regex division heuristic below scans raw source lines, so a `/` inside a string
+    literal -- a URL, a file path, a regex -- is indistinguishable from the operator. That
+    flagged `Client("https://api.mainnet-beta.solana.com")` as "division by variable
+    without zero-check", because `/api` matched.
+
+    Rather than trying to teach a regex about string context, gate the rule on the parser:
+    a line only qualifies if the AST actually contains a division node on it. Returns None
+    when the source does not parse (non-Python language, or a syntax error), so callers
+    fall back to the old behaviour instead of silently reporting nothing.
+    """
+    import ast as _ast
+    try:
+        tree = _ast.parse(code)
+    except SyntaxError:
+        return None
+    lines = set()
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.BinOp) and isinstance(node.op, _ast.Div):
+            # divisor must be a variable/expression, not a plain literal like /2
+            if not isinstance(node.right, _ast.Constant):
+                lines.add(getattr(node, "lineno", 0))
+    return lines
+
+
 def analyze_patterns(code: str, language: str) -> List[Dict]:
     """Pattern-based detection for common bugs and security issues."""
+    _div_lines = _ast_division_lines(code)
     issues = []
     lines = code.split("\n")
     full_code = code
@@ -520,8 +548,12 @@ def analyze_patterns(code: str, language: str) -> List[Dict]:
                 "suggestion": "Use environment variables or a secrets manager",
             })
 
-        # Division without zero check
-        if re.search(r'/\s*\w+', stripped) and "/ 0" not in stripped and "try" not in stripped:
+        # Division without zero check.
+        # Gated on the AST: a `/` inside a string literal is not a division. When the
+        # source does not parse (_div_lines is None) fall back to the regex unchanged.
+        _is_div = True if _div_lines is None else (i in _div_lines)
+        if (_is_div and re.search(r'/\s*\w+', stripped)
+                and "/ 0" not in stripped and "try" not in stripped):
             # Simple heuristic — check if there's a division with a variable
             if re.search(r'/\s*[a-zA-Z_]\w*', stripped) and "def " not in stripped:
                 issues.append({

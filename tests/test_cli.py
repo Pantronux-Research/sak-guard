@@ -107,7 +107,12 @@ def test_fixtures_carry_no_local_or_network_dependency():
     import re
     bad = re.compile(r"192\.168\.|10\.\d+\.\d+\.|100\.\d+\.\d+\.|/home/|/tmp/"
                      r"|localhost|127\.0\.0\.1|https?://")
+    # The *_solana_* fixtures deliberately contain an RPC endpoint and key-shaped
+    # strings: that is the CONTENT under audit, not a dependency of this test run.
+    # Excluded by name so the rule keeps its teeth for every other fixture.
     for f in FIXTURES.glob("*.py"):
+        if "_solana_" in f.name:
+            continue
         text = f.read_text()
         assert not bad.search(text), f"{f.name} contains an environment-specific reference"
 
