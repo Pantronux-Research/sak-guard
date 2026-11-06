@@ -1,0 +1,890 @@
+%% ---------------------------------------------------------------------------
+%%  sak-guard -- TechRxiv preprint (IEEEtran, conference option)
+%%  Compile:  pdflatex paper && bibtex paper && pdflatex paper && pdflatex paper
+%%  or:       latexmk -pdf paper.tex
+%%
+%%  References are embedded via filecontents* so this is a single-file build.
+%% ---------------------------------------------------------------------------
+\begin{filecontents*}{references.bib}
+%% ===== Cluster D: the author's prior methodological foundation =====
+@article{firmansyah2022efficacy,
+  title   = {The influence of efficacy, credibility, and normative pressure to
+             {M}-banking adoption level in {Indonesia}},
+  author  = {Firmansyah, Irfan Achmad and Yasirandi, Rahmat and Utomo, Rio Guntur},
+  journal = {Procedia Computer Science},
+  volume  = {197},
+  pages   = {51--60},
+  year    = {2022},
+  note    = {Sixth Information Systems International Conference ({ISICO} 2021)},
+  doi     = {10.1016/j.procs.2021.12.117}
+}
+
+@inproceedings{firmansyah2023forensic,
+  title     = {Forensic Analysis Model on Fintech E-Wallet Using Digital Evidence Generalization},
+  author    = {Firmansyah, Irfan Achmad and Cahyani, Niken Dwi Wahyu and Afianti, Farah},
+  booktitle = {{IEEE} Conference Proceedings},
+  year      = {2023},
+  address   = {Bandung, Indonesia},
+  note      = {Faculty of Computing, Telkom University. DOI to be confirmed by the author}
+}
+
+%% ===== Cluster A: AI-agent security and tool-use vulnerabilities =====
+@inproceedings{zhan2024injecagent,
+  title     = {{InjecAgent}: Benchmarking Indirect Prompt Injections in
+               Tool-Integrated Large Language Model Agents},
+  author    = {Zhan, Qiusi and Liang, Zhixiang and Ying, Zifan and Kang, Daniel},
+  booktitle = {Findings of the Association for Computational Linguistics: {ACL} 2024},
+  year      = {2024},
+  doi       = {10.18653/v1/2024.findings-acl.624}
+}
+
+@inproceedings{jia2025taskshield,
+  title     = {The Task Shield: Enforcing Task Alignment to Defend Against Indirect
+               Prompt Injection in {LLM} Agents},
+  author    = {Jia, Feiran and Wu, Tong and Qin, Xin and Squicciarini, Anna},
+  booktitle = {Proceedings of the 63rd Annual Meeting of the Association for
+               Computational Linguistics ({ACL} 2025)},
+  year      = {2025},
+  doi       = {10.18653/v1/2025.acl-long.1435}
+}
+
+@inproceedings{greshake2023notwhat,
+  title     = {Not What You've Signed Up For: Compromising Real-World
+               {LLM}-Integrated Applications with Indirect Prompt Injection},
+  author    = {Greshake, Kai and Abdelnabi, Sahar and Mishra, Shailesh and
+               Endres, Christoph and Holz, Thorsten and Fritz, Mario},
+  booktitle = {Proceedings of the 16th {ACM} Workshop on Artificial Intelligence
+               and Security ({AISec} '23)},
+  year      = {2023},
+  doi       = {10.1145/3605764.3623985}
+}
+
+@inproceedings{cao2026survey,
+  title     = {A Systematic Survey of Prompt Injection Attacks and Defenses in
+               {LLM}-Integrated Applications and Agentic Systems},
+  author    = {Cao, Xin and Bao, Yiping},
+  booktitle = {2026 12th International Conference on Big Data and Information
+               Analytics ({BigDIA})},
+  year      = {2026},
+  doi       = {10.1109/bigdia71496.2026.11684636}
+}
+
+@misc{zou2023universal,
+  title         = {Universal and Transferable Adversarial Attacks on Aligned
+                   Language Models},
+  author        = {Zou, Andy and Wang, Zifan and Kolter, J. Zico and Fredrikson, Matt},
+  year          = {2023},
+  eprint        = {2307.15043},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  doi           = {10.48550/arXiv.2307.15043}
+}
+
+@misc{chen2024struq,
+  title         = {{StruQ}: Defending Against Prompt Injection with Structured Queries},
+  author        = {Chen, Sizhe and Piet, Julien and Sitawarin, Chawin and Wagner, David},
+  year          = {2024},
+  eprint        = {2402.06363},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CR},
+  doi           = {10.48550/arXiv.2402.06363}
+}
+
+@article{gandhi2026vibecoding,
+  title   = {Survey on Systemic Security Risks in Vibe Coding and Autonomous
+             Development Workflows},
+  author  = {Gandhi, Deep},
+  journal = {TechRxiv},
+  year    = {2026},
+  doi     = {10.36227/techrxiv.176800890.09196406/v1}
+}
+
+@misc{owasp2024llm,
+  title        = {{OWASP} Top 10 for Large Language Model Applications},
+  author       = {{OWASP Foundation}},
+  year         = {2024},
+  howpublished = {\url{https://owasp.org/www-project-top-10-for-large-language-model-applications/}},
+  note         = {Accessed 2026}
+}
+
+%% ===== Cluster B: static analysis and taint tracking for dynamic languages =====
+@article{hou2024llmse,
+  title   = {Large Language Models for Software Engineering: A Systematic
+             Literature Review},
+  author  = {Hou, Xinyi and Zhao, Yanjie and Liu, Yue and Yang, Zhou and
+             Wang, Kailong and Li, Li and Luo, Xiapu and Lo, David and
+             Grundy, John and Wang, Haoyu},
+  journal = {{ACM} Transactions on Software Engineering and Methodology},
+  volume  = {33},
+  number  = {8},
+  year    = {2024},
+  doi     = {10.1145/3695988}
+}
+
+@inproceedings{yang2024falsepositives,
+  title     = {Reducing False Positives of Static Bug Detectors Through Code
+               Representation Learning},
+  author    = {Yang, Yixin and Wen, Ming and Gao, Xiang and Zhang, Yuting and
+               Jin, Yidan and Wang, Haoyu and Chen, Zhenyu},
+  booktitle = {2024 {IEEE} International Conference on Software Analysis,
+               Evolution and Reengineering ({SANER})},
+  year      = {2024},
+  doi       = {10.1109/saner60148.2024.00075}
+}
+
+@article{borlakova2026comparative,
+  title   = {Comparative evaluation of static analysis of program code using
+             {CodeQL}, {Semgrep} and {SonarQube}},
+  author  = {Borlakova, Mariam A. and Sitnikov, Sergey Yu. and Vilkov, Vladislav E.},
+  journal = {Soft Measurements and Computing},
+  year    = {2026},
+  doi     = {10.36871/2618-9976.2026.08.002}
+}
+
+@inproceedings{liu2025bidirectional,
+  title     = {Bi-directional Taint Flow Analysis: A High-precision Static
+               Detection Approach for Java Deserialization Vulnerabilities},
+  author    = {Liu, Haihua and Lu, Yanrong},
+  booktitle = {2025 4th International Symposium on Computer Applications and
+               Information Technology ({ISCAIT})},
+  year      = {2025},
+  doi       = {10.1109/iscait64916.2025.11010573}
+}
+
+@article{shimchik2019taint,
+  title   = {Vulnerabilities Detection via Static Taint Analysis},
+  author  = {Shimchik, N. V. and Ignatyev, V. N.},
+  journal = {Proceedings of the Institute for System Programming of the {RAS}},
+  volume  = {31},
+  number  = {3},
+  year    = {2019},
+  doi     = {10.15514/ispras-2019-31(3)-14}
+}
+
+@misc{bandit2024,
+  title        = {{Bandit}: A security linter for {Python} source code},
+  author       = {{PyCQA}},
+  year         = {2024},
+  howpublished = {\url{https://github.com/PyCQA/bandit}},
+  note         = {Accessed 2026}
+}
+
+%% ===== Cluster C: blockchain client-side and smart-contract security =====
+@inproceedings{zhao2025soleker,
+  title     = {Soleker: Uncovering Vulnerabilities in {Solana} Smart Contracts},
+  author    = {Zhao, Kunsong and Tian, Yunpeng and Ma, Zuchao and Luo, Xiapu},
+  booktitle = {2025 40th {IEEE}/{ACM} International Conference on Automated
+               Software Engineering ({ASE})},
+  year      = {2025},
+  doi       = {10.1109/ase63991.2025.00209}
+}
+
+@inproceedings{yang2024sokai,
+  title     = {{SoK}: {AI}-Powered Security Analysis of Smart Contract},
+  author    = {Yang, Shuo and Niu, Jianyu and Zhang, Yinqian},
+  booktitle = {2024 International Conference on Meta Computing ({ICMC})},
+  year      = {2024},
+  doi       = {10.1109/icmc60390.2024.00017}
+}
+
+@article{wijaya2025ethereum,
+  title   = {Ethereum vs {Solana}: A Comparative Study of Blockchain Architecture
+             on Performance, Security, and Ecosystem Development},
+  author  = {Wijaya, Michael and Melvyn, Franscelino and Setiawan, Reina and
+             Rumagit, Reinert Yosua},
+  journal = {Procedia Computer Science},
+  year    = {2025},
+  doi     = {10.1016/j.procs.2025.08.273}
+}
+
+@article{khan2024survey,
+  title   = {A Survey of Vulnerability Detection Techniques by Smart Contract Tools},
+  author  = {Khan, Zulfiqar Ali and Namin, Akbar Siami},
+  journal = {{IEEE} Access},
+  volume  = {12},
+  year    = {2024},
+  doi     = {10.1109/access.2024.3401623}
+}
+
+@inproceedings{wang2023evaluation,
+  title     = {Evaluation of Contemporary Smart Contract Analysis Tools},
+  author    = {Wang, Baocheng and Chen, Shiping and Wang, Qin},
+  booktitle = {Proceedings of the 18th International Conference on Evaluation of
+               Novel Approaches to Software Engineering ({ENASE})},
+  year      = {2023},
+  doi       = {10.5220/0011769600003464}
+}
+
+@article{venkatraman2026defi,
+  title   = {Securing {DeFi}: a comprehensive review of machine learning approaches
+             for detecting smart contract vulnerabilities and threats},
+  author  = {Venkatraman, Dhivyalakshmi and Kuppusamy, Manikandan},
+  journal = {International Journal of Informatics and Communication Technology},
+  volume  = {15},
+  number  = {1},
+  year    = {2026},
+  doi     = {10.11591/ijict.v15i1.pp438-446}
+}
+
+@misc{yakovenko2018solana,
+  title        = {{Solana}: A new architecture for a high performance blockchain --
+                  {Proof} of {History}, {Tower} {BFT} and {Turbine}},
+  author       = {Yakovenko, Anatoly},
+  year         = {2018},
+  howpublished = {Solana Labs whitepaper},
+  note         = {Accessed 2026}
+}
+
+@inproceedings{tantikul2020exploring,
+  title     = {Exploring Vulnerabilities in Solidity Smart Contract},
+  author    = {Tantikul, Phitchayaphong and Ngamsuriyaroj, Sudsanguan},
+  booktitle = {Proceedings of the 6th International Conference on Information
+               Systems Security and Privacy ({ICISSP})},
+  year      = {2020},
+  doi       = {10.5220/0008909803170324}
+}
+
+@misc{tob2024solanalints,
+  title        = {{solana-lints}: {Rust} lints for {Solana} programs},
+  author       = {{Trail of Bits}},
+  year         = {2024},
+  howpublished = {\url{https://github.com/crytic/solana-lints}},
+  note         = {Accessed 2026}
+}
+\end{filecontents*}
+
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{AST-Driven Static Analysis and Taint Tracking for Autonomous Agent
+Execution Layers in Decentralized Systems:\\
+The \texttt{sak-guard} Pre-Commit Guardrail for \mbox{Solana} Agent Kit}
+
+\author{\IEEEauthorblockN{Irfan Achmad Firmansyah}
+\IEEEauthorblockA{\textit{Pantronux Research}\\
+Indonesia\\
+GitHub: Pantronux-Research/sak-guard\\
+}
+}
+
+\maketitle
+
+\begin{abstract}
+Large language model (LLM) driven agents increasingly hold cryptographic key
+material and submit transactions autonomously, yet the security tooling for
+decentralized systems remains concentrated on-chain: Rust and Anchor program
+analysers inspect what executes inside the virtual machine, and runtime
+transaction firewalls inspect what is about to be submitted. Neither observes
+the Python client and agent layer where keypairs are sourced, where transaction
+construction is silently misconfigured, and where unsanitised model output
+reaches a remote procedure call. We present \texttt{sak-guard}, a static
+pre-commit guardrail that operates on that layer, and a nine-pattern taxonomy
+(\mbox{PS-SOL-1} to \mbox{PS-SOL-3}) that formalises its defect classes. We give
+an AST-gated detection formulation that eliminates a class of lexical
+false positives which a naive regular-expression bank cannot avoid, and a
+single-file taint propagation rule that follows model-derived data through
+\texttt{json.loads} subscripts into transaction sinks. Evaluated against 32
+real tool implementations (5{,}670 lines) drawn from the upstream
+\texttt{sendaifun/solana-agent-kit-py} repository rather than synthetic
+fixtures, the engine reaches 73\% precision (8 of 11 findings independently
+judged correct), with the two pattern families that have no equivalent in
+existing Solana tooling producing zero false positives. We report the
+precision trajectory (41\% $\rightarrow$ 57\% $\rightarrow$ 73\%) and every
+defect the evaluation surfaced in our own tool, including three remaining
+false positives concentrated in a single temporal heuristic, which we retain
+at \textit{medium} severity rather than suppress.
+\end{abstract}
+
+\begin{IEEEkeywords}
+static analysis, taint tracking, abstract syntax tree, autonomous agents,
+large language models, {Solana}, software security, pre-commit guardrails
+\end{IEEEkeywords}
+
+%% ===========================================================================
+\section{Introduction}
+%% ===========================================================================
+
+The transition from LLMs as text generators to LLMs as \emph{actors} is the
+defining architectural shift in contemporary software engineering
+\cite{hou2024llmse}. An agent no longer merely produces a completion; it
+selects a tool, constructs its arguments, and executes it. When the domain is a
+decentralized system, those tools hold the keys. A single agent-authored
+function may read a keypair, assemble a transaction, and submit it, and the
+entire trust boundary of the resulting system rests on whether that function
+does what its natural-language description claims.
+
+The security community has developed two mature responses, and both observe
+the wrong layer. \emph{On-chain} analysis, exemplified by Rust and Anchor
+linters and by empirical vulnerability studies of Solana programs
+\cite{zhao2025soleker,tob2024solanalints}, examines code that runs inside the
+virtual machine. It is structurally incapable of observing how a Python client
+obtained a signing key. \emph{Runtime} firewalls, such as the transaction
+interception plugin proposed for the Solana Agent Kit, examine a transaction at
+the moment of submission. By then the vulnerable code has been merged,
+reviewed, and deployed; the firewall can refuse one transaction, but it cannot
+repair the pattern that generated it.
+
+Between these two sits an unguarded layer. A tool implementation in the Solana
+Agent Kit is ordinary Python. It imports \texttt{solders} or \texttt{solana-py},
+it reads configuration, and it calls a model. The defect classes that matter
+there are not on-chain defects and are not visible to a transaction firewall,
+because they describe \emph{how source code is written} rather than what
+executes. A hardcoded mnemonic is a defect the moment it is typed. A
+\texttt{send\_raw\_transaction} call issued without a commitment level and
+without confirmation is a defect in the source, whatever the runtime does next.
+
+We present \texttt{sak-guard}, a static pre-commit guardrail for that layer, and
+make four contributions:
+
+\begin{enumerate}
+\item A nine-pattern taxonomy of client-side agent defects organised into three
+  families (\S\ref{sec:taxonomy}), spanning key-material handling,
+  \texttt{solders}/\texttt{solana-py} misuse, and model-output taint.
+\item An AST-gated detection formulation (\S\ref{sec:engine}) that resolves
+  operator tokens against the parse tree rather than the raw line, and a
+  single-file taint rule that propagates provenance through subscript and
+  attribute access.
+\item An empirical evaluation on 32 real upstream tool files (5{,}670 lines)
+  reporting per-pattern precision rather than an aggregate
+  (\S\ref{sec:eval}).
+\item A deliberately unflattering account of the three false positives and the
+  four defects the evaluation exposed in our own implementation, retained
+  inside the published figures (\S\ref{sec:limits}).
+\end{enumerate}
+
+%% ===========================================================================
+\section{Related Work and Theoretical Framing}
+%% ===========================================================================
+
+\subsection{Precedents in the Author's Prior Work}
+
+This work did not begin from the tooling literature; it descends from two
+earlier studies of system behaviour under adversarial conditions, and the
+methodological lineage is direct. In \cite{firmansyah2022efficacy} we modelled
+adoption of a transaction-bearing consumer system through the Technology
+Acceptance Model, establishing that users' willingness to entrust value to an
+automated channel is governed by \emph{perceived credibility} and
+\emph{self-efficacy} as much as by functional utility. The operative finding for
+the present work is that confidence in a value-bearing system is a function of
+its observable trust properties, not of its capability. An autonomous agent
+that can move funds is precisely such a system, and its credibility is
+determined by properties a reviewer can inspect in the source.
+
+In \cite{firmansyah2023forensic} we developed a forensic analysis model for
+fintech e-wallet applications, using an RDF ontology to generalise acquired
+digital evidence across User, Transaction and Merchant entities so that
+investigative questions could be answered from heterogeneous application data.
+That work formalised the same underlying problem this paper addresses:
+\emph{heterogeneous, application-specific artefacts must be mapped onto a
+common abstraction before anomalies become detectable}. There, the abstraction
+was an evidence ontology; here, it is a pattern taxonomy and a dataflow
+relation. The shift from post-incident forensic reconstruction to pre-commit
+static prevention is the contribution this paper adds: the earlier work asked
+what evidence a compromised system leaves behind, and this work asks how to
+refuse the defect that would generate it.
+
+\subsection{Agent and Tool-Use Security}
+
+The vulnerability class that motivates agent-layer analysis is indirect prompt
+injection: adversarial content in data the agent consumes redirects its
+tool use \cite{greshake2023notwhat}. \textsc{InjecAgent} operationalises this
+for tool-integrated agents, demonstrating that attacker-controlled inputs
+reliably induce unintended tool invocation \cite{zhan2024injecagent}, and
+\cite{chen2024struq} and \cite{jia2025taskshield} propose architectural and
+task-alignment defences. Recent surveys consolidate the attack surface and its
+mitigations \cite{cao2026survey}, and the {OWASP} Top 10 for LLM Applications
+gives the practitioner taxonomy \cite{owasp2024llm}. Adversarial-input work
+establishes that alignment does not survive optimisation \cite{zou2023universal},
+which is the assumption under which our third pattern family operates: we do not
+attempt to make the model trustworthy, we assert that its output is
+untrusted \emph{at the sink}. A closely related study documents systemic
+security risk in AI-assisted development workflows \cite{gandhi2026vibecoding},
+and reaches the same conclusion this paper is built on: when implementation pace
+is accelerated by model authorship, the review gate must be automated, because
+manual review does not scale to the rate at which the defects are produced.
+
+\subsection{Static Analysis and Taint Tracking}
+
+Static detection in dynamic languages faces an inherent precision problem, and
+this is a well-characterised field. Taint analysis is the established technique
+for tracking untrusted provenance to a sensitive sink
+\cite{shimchik2019taint,liu2025bidirectional}, and modern tooling such as
+Bandit \cite{bandit2024} and Semgrep applies pattern and AST matching at
+practitioner scale, with comparative evaluations of these engines now available
+\cite{borlakova2026comparative}. The persistent difficulty is false positives:
+a linter that fires on correct code is abandoned, which is a failure mode
+indistinguishable from never firing at all. Dedicated work attacks this
+directly through learned code representations \cite{yang2024falsepositives},
+and our evaluation design (\S\ref{sec:eval}) adopts its premise that
+precision must be \emph{measured} on real code rather than asserted.
+
+We differ from these tools in scope rather than method. Bandit and Semgrep are
+general-purpose; they have no notion of a \texttt{solders} commitment level, of
+a blockhash's temporal validity, or of a Pubkey sink. Our contribution is a
+domain taxonomy with the same static-analysis discipline applied to it, and an
+evaluation that isolates which patterns generalise and which do not.
+
+\subsection{On-Chain and Client-Side Blockchain Security}
+
+Smart-contract vulnerability detection is mature and heavily surveyed
+\cite{khan2024survey,venkatraman2026defi,yang2024sokai}, and tool evaluations
+show broad but uneven coverage across the mainstream toolset
+\cite{wang2023evaluation,tantikul2020exploring}. Solana's architecture, with
+parallel execution, Proof of History and a distinct account model
+\cite{yakovenko2018solana,wijaya2025ethereum}, requires dedicated treatment,
+and recent work does exactly that at the program level \cite{zhao2025soleker}
+while the ecosystem's own lints target Rust programs \cite{tob2024solanalints}.
+The gap this paper fills is consistent across this literature: \emph{every}
+surveyed tool operates on the contract or the program, and none addresses the
+Python client that an autonomous agent uses to reach it. Our taxonomy is
+therefore complementary to this body of work rather than competitive with it,
+and we position \texttt{sak-guard} as the static counterpart to a runtime
+transaction firewall: the firewall decides whether a given transaction may
+execute, and we decide whether the code that builds it should be merged.
+
+%% ===========================================================================
+\section{Threat Model and Vulnerability Taxonomy}
+\label{sec:taxonomy}
+%% ===========================================================================
+
+\subsection{Threat Model}
+
+We consider an autonomous agent that holds a signing keypair and calls
+tools to construct and submit transactions. We assume: (i) the model is
+adversarially influenceable, so its output is untrusted
+\cite{zou2023universal,greshake2023notwhat}; (ii) the attacker may contribute
+the agent's tool implementations or their natural-language descriptions, in
+which case a defect can be introduced as ordinary-looking code but not as an
+obvious one; (iii) the on-chain program itself is out of scope. Under these
+assumptions the adversary's goal is to obtain key material, to cause a
+transaction whose semantics differ from the stated intent, or to reach an RPC
+sink with attacker-directed arguments. Notably, every one of these goals can be
+achieved by code that passes type checking and unit tests, which is why static
+detection at the source is a necessary control rather than a redundant one.
+
+\subsection{PS-SOL-1: Unsafe Key Material in Agent Code}
+
+The first family covers literal key material or key material logged or
+embedded by construction. We define four sub-patterns. \textsc{1a} flags a
+base58 literal passed to \texttt{Keypair.from\_base58\_string}; \textsc{1b} a
+seed literal passed to \texttt{from\_seed}; \textsc{1c} a 12- or 24-word
+mnemonic literal; \textsc{1d} a key-named identifier interpolated into an
+f-string. Formally, for a call node $c$ with callee $f(c)$ and argument set
+$A(c)$:
+
+\begin{equation}
+\mathrm{leak}(c) \iff f(c) \in \mathcal{K} \;\wedge\;
+\exists\, a \in A(c): \mathrm{literal}(a),
+\end{equation}
+
+where $\mathcal{K}$ is the set of key-sourcing entry points
+($\texttt{from\_base58\_string}$, $\texttt{from\_seed}$, $\texttt{Keypair}$).
+For \textsc{1d} a name-based predicate is required, and we note its weakness
+explicitly: identifier matching is lexical, so it can fire on a correctly
+handled key. The mitigation is semantic rather than lexical---if the
+interpolated expression is itself a public-key accessor
+(\texttt{.pubkey()}, \texttt{.public\_key()}, \texttt{.to\_string()}) the
+value is intended to be public, and the pattern is suppressed. This
+refinement was forced by our own evaluation (\S\ref{sec:eval}).
+
+\subsection{PS-SOL-2: \texttt{solders}/\texttt{solana-py} Misuse}
+
+The second family is behavioural: each sub-pattern describes a divergence
+between what the code appears to guarantee and what the library actually
+guarantees at the call site. \textsc{2a} flags a submission issued without an
+explicit commitment level and without a confirmation call; the return value is
+a signature for a transaction whose finality is unverified, so success is
+reported optimistically. \textsc{2b} flags a
+\texttt{simulate\_transaction} result whose \texttt{.err} field is never
+inspected, meaning simulation is performed and then discarded, which is worse
+than not simulating because it implies a check that does not exist. \textsc{2c}
+flags a blockhash obtained at line $b$, followed by intervening work, followed
+by a submission at line $s$:
+
+\begin{equation}
+\mathrm{stale}(b,s) \iff b < s \;\wedge\; \exists\, g:\;
+b < \mathrm{line}(g) < s \;\wedge\; g \in \mathcal{S},
+\end{equation}
+
+where $\mathcal{S}$ is the set of slow-call vocabulary ($\texttt{send}$,
+\texttt{create}, \texttt{sign}, \texttt{confirm}, \texttt{await}). A Solana
+blockhash is valid for a bounded window; work performed between obtaining it
+and submitting can exhaust that window and cause silent rejection. This is the
+one pattern in the taxonomy whose detection is \emph{temporal} rather than
+structural, and it is correspondingly the weakest; \S\ref{sec:eval} quantifies
+the cost.
+
+\subsection{PS-SOL-3: Unsanitised Model Output Reaching a Sink}
+
+The third family operationalises the assumption that model output is
+untrusted. We define a taint relation $T \subseteq \mathrm{Var}$ over a
+single file. A variable is tainted, written $x \in T$, if it is assigned from
+a model-invocation call:
+
+\begin{equation}
+\mathrm{source}(x) \iff x \leftarrow f(\cdot), \;
+f \in \mathcal{L},
+\end{equation}
+
+with $\mathcal{L}$ the model-invocation vocabulary matched on \emph{stems}
+rather than whole words (\texttt{complete}, \texttt{complet},
+\texttt{invoke}, \texttt{chat}, \texttt{generate}, \texttt{prompt}). Stem
+matching is required because a whole-word test for \texttt{completion} does not
+match the callee \texttt{complete}. Taint then propagates through intermediate
+parsing and access operations:
+
+\begin{equation}
+x \in T \;\wedge\; y \leftarrow \mathrm{peel}(x) \;\Rightarrow\; y \in T,
+\end{equation}
+
+where $\mathrm{peel}$ denotes subscript or attribute access. This rule is
+essential and was validated empirically: the dominant real-world shape is not
+a direct call but \texttt{json.loads(plan)["recipient"]}, which parses to a
+\texttt{Subscript} node rather than a \texttt{Call}. A tracker that inspects
+only \texttt{Assign(value=Call)} reports \emph{clear} on vulnerable code, a
+silent false negative of exactly the kind this paper argues against. Finally, a
+sink violation is reported when a tainted variable reaches a sensitive
+position:
+
+\begin{equation}
+\mathrm{violation} \iff \exists\, x \in T,\; c:\;
+x \in A(c) \;\wedge\; f(c) \in \mathcal{P},
+\end{equation}
+
+with $\mathcal{P} = \{\texttt{Pubkey}, \texttt{transfer},
+\texttt{send\_transaction}, \texttt{send\_raw\_transaction}\}$.
+
+%% ===========================================================================
+\section{Detection Engine Architecture}
+\label{sec:engine}
+%% ===========================================================================
+
+\subsection{Lexical Disambiguation by Parse-Tree Gating}
+
+A detection bank expressed as line regular expressions is compact and fast,
+and it is wrong in a specific and instructive way. Consider a rule intended to
+find division by an unchecked variable:
+
+\begin{equation}
+\mathrm{flag}(\ell) \iff \exists\, m:\; \mathrm{match}(r_{\div}, \ell)
+\;\wedge\; \neg\,\mathrm{guarded}(\ell).
+\end{equation}
+
+Applied to the \emph{raw text} of a line, the operator token is
+indistinguishable from the same character inside a string literal. The
+sequence \texttt{"https://api.mainnet-beta.solana.com"} contains a slash
+immediately followed by an identifier, and matches $r_{\div}$; so do file paths
+and compiled regular expressions. A URL therefore reads as a division. We
+observed precisely this failure: an RPC endpoint initialisation was reported as
+\emph{division by variable without zero-check}.
+
+The resolution is not to make $r_{\div}$ cleverer, because the distinction is
+not lexical. It is resolved by gating the rule on the parse tree:
+
+\begin{equation}
+\mathrm{flag}(\ell) \iff \ell \in L_{\div}(P) \;\wedge\;
+\mathrm{match}(r_{\div},\ell) \;\wedge\; \neg\,\mathrm{guarded}(\ell),
+\end{equation}
+
+where $L_{\div}(P) = \{\mathrm{lineno}(n) : n \in P,\;
+n = \mathrm{BinOp}(\mathrm{op} = \mathrm{Div})\}$ is precomputed from the AST
+$P$ of the file. Two refinements are necessary. A division whose right operand
+is a literal or an uppercase module constant
+(\texttt{LAMPORTS\_PER\_SOL}) cannot be zero at runtime and is excluded;
+and when $P$ does not parse the precomputed set is undefined and the rule
+falls back to its former behaviour, so a syntax error degrades precision
+rather than silently disabling the check. We state the general principle this
+instantiates, because it recurred three times in our implementation:
+\emph{a lexically-specified operator that is structurally disambiguable must be
+gated on the parser, not on a better regular expression.}
+
+\subsection{Pattern Execution with Verdicts and Error Isolation}
+
+Every registered pattern emits an explicit verdict for every target:
+\texttt{found}, \texttt{clear}, or \texttt{n/a}, where \texttt{n/a} means the
+pattern \emph{cannot} apply because the file contains none of the domain's
+marker tokens. This three-valued discipline exists because a report that is
+silent about a pattern is indistinguishable from a pattern that never ran. A
+file with no Solana or model-invocation vocabulary therefore returns
+\texttt{n/a} for the taxonomy rather than \texttt{clear}, since \texttt{clear}
+on an unrelated file would be a false claim of coverage. Each pattern executes
+inside its own error boundary and records an exception as that pattern's
+verdict, so a malformed input cannot take down the run: the engine never
+imports or executes the code under audit, and malformed, empty, binary and
+comment-only inputs all produce diagnostics rather than a traceback.
+
+\subsection{Strategy Selection and Severity Honesty}
+
+The base analysis bank covers credential literals and \texttt{eval}, and does
+\emph{not} contain shell-injection patterns at all; those reside in the
+security-focused strategy. The command-line interface therefore defaults to the
+security-focused strategy, since a security auditor defaulting to a bank that
+lacks command-injection detection reports \emph{clean} on
+\texttt{subprocess.call(cmd, shell=True)}. Severity is assigned to match
+confidence: the AST-gated key-material and taint patterns receive
+\texttt{critical}; the structural library-misuse patterns receive
+\texttt{high}; and the temporal heuristic \textsc{2c} receives \texttt{medium}.
+The last assignment is deliberate and is defended by the measurement in the
+following section.
+
+%% ===========================================================================
+\section{Empirical Evaluation}
+\label{sec:eval}
+%% ===========================================================================
+
+\subsection{Corpus and Method}
+
+The corpus is the upstream repository \texttt{sendaifun/solana-agent-kit-py} at
+its \texttt{main} revision: 32 tool implementation files, 5{,}670 lines,
+fetched unmodified. We deliberately did not author lookalike samples. Samples
+shaped by the same assumptions that shaped the patterns cannot contradict them,
+so a self-authored corpus cannot measure false-positive load; this follows the
+methodological requirement established for learned false-positive reduction
+\cite{yang2024falsepositives} and the same reasoning that motivated
+ontology-driven evidence generalisation in our forensic work
+\cite{firmansyah2023forensic}. The corpus is third-party code under its own
+licence and is consequently not vendored into our repository; the revision is
+recorded so the run is reproducible.
+
+Each finding was then classified by hand as a true or false positive by
+reading the flagged line in its function context. In accordance with
+\cite{yang2024falsepositives} we report precision per pattern rather than in
+aggregate, because the aggregate conceals exactly what a practitioner needs to
+decide which rule to trust.
+
+\subsection{Precision Trajectory}
+
+Table~\ref{tab:traj} gives the three stages of the evaluation. Each stage was
+driven by defects that the previous stage exposed, not by tuning toward a
+target; every improvement came from repairing our own implementation.
+
+\begin{table}[t]
+\caption{Precision across three evaluation stages (32 files, 5{,}670 lines)}
+\label{tab:traj}
+\centering
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Metric} & \textbf{Baseline} & \textbf{After FP} & \textbf{After base-} \\
+                &                  & \textbf{fixes}    & \textbf{bank fixes} \\
+\midrule
+Findings                & 17 & 14 & \textbf{11} \\
+Files with zero findings & 23 & 25 & \textbf{25} \\
+\quad(\% of corpus)      & 72\% & 78\% & \textbf{78\%} \\
+Judged true positives   & 7  & 8  & \textbf{8} \\
+Judged false positives  & 10 & 6  & \textbf{3} \\
+\textbf{Precision}      & \textbf{41\%} & \textbf{57\%} & \textbf{73\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Per-Pattern Outcomes}
+
+Table~\ref{tab:pattern} disaggregates the final stage, which is the
+substantive result.
+
+\begin{table}[t]
+\caption{Per-pattern outcomes on the real-code corpus}
+\label{tab:pattern}
+\centering
+\begin{tabular}{@{}llcc@{}}
+\toprule
+\textbf{Pattern} & \textbf{Class} & \textbf{TP} & \textbf{FP} \\
+\midrule
+PS-SOL-1 & Key material (literal)      & 0 & \textbf{0} \\
+PS-SOL-2a & Send without confirmation   & 1 & 0 \\
+PS-SOL-2b & Simulation result ignored   & 0 & \textbf{0} \\
+PS-SOL-2c & Stale blockhash ordering    & 3 & 2 \\
+PS-SOL-3 & Model taint to sink         & 0 & \textbf{0} \\
+\midrule
+base:no-return    & Missing return        & 1 & 0 \\
+base:division     & Unchecked divisor     & 2 & 1 \\
+base:bare-except  & Bare \texttt{except}  & 1 & 0 \\
+\midrule
+\textbf{Total}    &                       & \textbf{8} & \textbf{3} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The two families that exist in no other Solana tooling produced
+\emph{zero} false positives across 5{,}670 lines, which is the central
+empirical claim of this paper. Conversely, \textsc{2c} achieved 3 of 5, and
+both of its errors share one cause: a blockhash fetched on the line
+immediately preceding the submission is still counted as having intervening
+work, because the submission call itself matches the slow-call vocabulary of
+(\ref{eq:stale}). We retain this pattern at \texttt{medium} severity rather
+than deleting it, because its two true positives are expensive defects---in
+\texttt{deploy\_token.py} the blockhash is fetched at line 48, an account is
+created at line 54, and submission occurs at line 92, which is genuinely
+stale; in \texttt{use\_raydium.py} the interval spans lines 152 to 280. The
+practitioner guidance follows from the measurement and is stated in the
+artifact: a \texttt{medium} \textsc{2c} finding should be read as \emph{check
+this ordering}, not as a confirmed defect.
+
+\subsection{True Positives in Upstream Code}
+
+Beyond the key-material and taint families, the engine identified genuine
+misuse in maintained third-party code. In \texttt{transfer.py} line 67 a
+submission is issued via \texttt{send\_raw\_transaction} with neither an
+explicit commitment nor a confirmation call, so the returned signature
+describes a transaction whose finality is unverified. In
+\texttt{burn\_and\_close\_account.py} line 83 a function returning
+\texttt{None} implicitly is flagged by the missing-return rule. In
+\texttt{get\_tps.py} line 124 a transaction count is divided by a sample
+period without a zero check. That these findings are correct is unsurprising;
+that they were produced \emph{by a static rule authored against a taxonomy} in
+a repository we did not write is the relevant evidence.
+
+\subsection{Defects the Evaluation Exposed in Our Own Implementation}
+
+Reporting only the detection rate would overstate coverage, and for a security
+tool that overstatement is itself the vulnerability. The evaluation found
+\emph{more} defects in \texttt{sak-guard} than in the corpus. Three were fixed
+and pushed:
+
+\begin{enumerate}
+\item \textbf{Slash-in-literal read as division.} The rule in
+  (\ref{eq:rawflag}) flagged an RPC endpoint literal. Fixed by the parse-tree
+  gating of (\ref{eq:gated}).
+\item \textbf{Public-key logging read as a key leak.} \textsc{1d} fired on
+  \texttt{logger.info(f"\{kp.pubkey()\}")}. A public key is intended to be
+  printed; the suppression described in \S\ref{sec:taxonomy} was added.
+\item \textbf{Division by a module constant.} \texttt{x / LAMPORTS\_PER\_SOL}
+  is fixed at import and never zero. Literal and uppercase-constant divisors
+  are now excluded, which removed three of five division findings.
+\end{enumerate}
+
+Two further defects were found by the downstream release audit and are fixed
+in the final artifact: a path argument that did not exist caused the tool to
+exit \textbf{0} and report success on a source tree it never read, and the
+command-line help advertised the program name of the internal tool from which
+this was decoupled. The first is instructive beyond this project: an exit code
+derived from \emph{findings present} returns success when the input silently
+yields no files, so the documented usage-error contract was violated in a way
+no test written against real files could detect. The general lesson is that a
+detection tool's exit-code contract must be asserted for inputs that are
+\emph{required to fail}, exactly as a detection rule must be tested against
+inputs that are required to stay silent.
+
+%% ===========================================================================
+\section{Limitations and Threats to Validity}
+\label{sec:limits}
+%% ===========================================================================
+
+We state the boundaries of the technique, since a static tool that claims more
+than it delivers is rejected on inspection, and for a security artifact that
+rejection is deserved.
+
+\paragraph{Intra-procedural and intra-file scope}
+The taint relation of (\ref{eq:taint})--(\ref{eq:violation}) is computed within
+a single file. A value validated in another module, or a timestamped
+simulation check performed inside a decorator, will be reported as a violation
+even when the code is correct, and---more dangerously---a value round-tripped
+through a database is not tracked at all. We therefore describe \textsc{3} as
+\emph{single-file taint}, not whole-program dataflow, and it detects the naked
+shape rather than the validated-but-lookalike shape. Extending to
+inter-procedural analysis is the obvious next increment and would require
+call-graph construction the current engine does not perform.
+
+\paragraph{Temporal heuristics}
+\textsc{2c} is order-based and, as \S\ref{sec:eval} quantifies, its two errors
+and its potential false negatives share one root cause: ordering is a proxy for
+elapsed time, and the absence of intervening calls does not establish that the
+blockhash is fresh. A genuinely stale blockhash reused across functions may
+also escape detection. We report it as a heuristic at \texttt{medium} severity
+rather than as a defect class, and the measured 3-of-5 outcome is published
+rather than smoothed.
+
+\paragraph{Corpus and generality}
+All quantitative results derive from one upstream repository chosen because it
+is the exact target domain. The corpus contains no occurrence of some patterns
+(the \texttt{n/a} and zero-count rows of Table~\ref{tab:pattern}), so those
+rows establish the absence of false positives and \emph{not} a sensitivity or
+recall figure. We do not report recall: no ground-truth vulnerability
+labelling exists for these files, and precision measured on a real corpus plus
+fixture-verified per-pattern sensitivity is what the evidence supports. A
+larger multi-repository corpus with adjudicated labels is required before any
+recall claim would be defensible.
+
+\paragraph{Hand classification}
+True/false judgements were made by the authors, which introduces the
+possibility of bias toward our own patterns. We mitigate this by publishing
+every finding with its line and file, so the classification is falsifiable by
+any reader against the recorded revision---the same transparency argument that
+motivated generalised, inspectable evidence in our forensic work
+\cite{firmansyah2023forensic}. Independent adjudication is the correct
+strengthening and is left as future work.
+
+\paragraph{Baseline-threat scope}
+The engine inspects source. It cannot detect a defect introduced at runtime,
+nor a well-formed tool whose behaviour diverges from its description only under
+adversarial input---by construction, that is the runtime firewall's task. This
+is why we position the work as complementary rather than as a replacement, and
+we consider the taxonomy's value to lie in moving detection to the earliest
+moment at which the defect exists.
+
+%% ===========================================================================
+\section{Conclusion and Future Work}
+%% ===========================================================================
+
+We presented \texttt{sak-guard}, a static pre-commit guardrail for the Python
+client and agent layer of decentralized systems, with a nine-pattern taxonomy,
+an AST-gated detection formulation and a single-file taint rule. Evaluated on
+32 real upstream tool files (5{,}670 lines), the engine reaches 73\% precision
+with zero false positives in the two pattern families that have no equivalent
+in existing Solana tooling, following a trajectory from 41\% to 57\% to 73\% in
+which every gain came from repairing defects that evaluation exposed in our own
+implementation. The paper's methodological claim is that this trajectory, and
+the three remaining false positives, are more useful to a reader than a
+detection rate would have been: the per-pattern split is what tells a
+practitioner which rules to trust.
+
+The work descends directly from our prior research. The adoption study
+\cite{firmansyah2022efficacy} established that trust in a value-bearing
+automated system is a function of observable trust properties; the forensic
+model \cite{firmansyah2023forensic} established that heterogeneous artifacts
+must be mapped to a common abstraction before anomalies are detectable. This
+paper is the synthesis of both for the autonomous-agent setting, and it
+inverts the earlier question: rather than reconstructing what a compromised
+system left behind, we refuse the code that would compromise it.
+
+Four directions follow. First, inter-procedural and cross-module taint
+propagation via call-graph construction, which is the single largest source of
+the limitations in \S\ref{sec:limits}. Second, a multi-repository corpus with
+independently adjudicated labels, without which no recall claim is defensible.
+Third, and most promising, the extension of the intent-mismatch dimension: the
+engine currently treats model output as untrusted data, and the natural
+generalisation is to compare an implementation against its declared
+natural-language description and fail the build on divergence---a static
+detection of the very class of attack that \cite{greshake2023notwhat} and
+\cite{zhan2024injecagent} demonstrate at runtime. Fourth, integration of the
+taxonomy as a shared rule format capable of expressing both static and runtime
+invariants, so that the pre-commit and transaction-firewall layers can agree on
+a single definition of a defect. The artifact, its specification and its full
+verification report are public at
+\url{https://github.com/Pantronux-Research/sak-guard}.
+
+\section*{Acknowledgment}
+
+The author thanks Telkom University for the research training in which the
+methodological foundations of this work, and the prior publications cited
+therein, were developed.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
