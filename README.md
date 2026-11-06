@@ -1,5 +1,11 @@
 # sak-guard
 
+[![CI](https://github.com/Pantronux-Research/sak-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/Pantronux-Research/sak-guard/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Pantronux-Research/sak-guard/blob/main/LICENSE)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://github.com/Pantronux-Research/sak-guard/blob/main/pyproject.toml)
+[![PyPI](https://img.shields.io/badge/PyPI-not%20yet%20published-lightgrey.svg)](https://pypi.org/project/sak-guard/)
+[![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)](#status)
+
 **Static pre-commit security guardrail for Solana agent code.**
 The static complement to a runtime transaction firewall.
 
@@ -37,6 +43,8 @@ The two are **complements, not competitors**. Use both.
 pip install sak-guard
 ```
 
+Requires **Python >= 3.10** (see [why the floor is 3.10 rather than 3.9](https://github.com/Pantronux-Research/sak-guard/blob/main/pyproject.toml)).
+
 No runtime dependencies — the engine is stdlib-only, so a pre-commit hook does not have to
 touch your environment.
 
@@ -50,6 +58,8 @@ sak-guard F --fail-on X       # critical | high | medium | low | any | never
 sak-guard F --strategy S      # security-focused (default) | default | ast-heavy | intent-focused
 sak-guard F --intent "..."    # what the code is supposed to do
 sak-guard F --use-llm         # optional LLM intent pass (provider from LLM_* env)
+sak-guard F --language python # source language (default: python)
+sak-guard F --quiet           # only print failing targets
 ```
 
 Exit codes: **0** clean or below threshold · **1** findings at/above threshold · **2** usage

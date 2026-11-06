@@ -1,0 +1,8 @@
+sak-guard
+Copyright 2026 Pantronux Research (Lead: Irfan Achmad Firmansyah)
+
+This product is licensed under the Apache License, Version 2.0.
+https://github.com/Pantronux-Research/sak-guard
+
+Contains no third-party code. The analysis engine is Python standard library only,
+with no runtime dependencies at any version.

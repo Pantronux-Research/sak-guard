@@ -1,0 +1,30 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev]"
+      - name: Unit tests
+        run: python -m pytest -v tests/
+      - name: Dogfood -- the tool must flag its own known-vulnerable fixture
+        run: |
+          sak-guard tests/fixtures/vulnerable_api.py --fail-on high \
+            && { echo "::error::sak-guard failed to flag a known-vulnerable fixture"; exit 1; } \
+            || echo "correctly flagged the vulnerable fixture (non-zero exit expected)"
+      - name: Dogfood -- clean fixture must pass
+        run: sak-guard tests/fixtures/clean_api.py --fail-on high

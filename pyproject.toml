@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,21 +7,40 @@ name = "sak-guard"
 version = "0.1.0a0"
 description = "Static pre-commit security guardrail for Solana Agent Kit and agent-client code. The static complement to a runtime transaction firewall."
 readme = "README.md"
-requires-python = ">=3.9"
-license = { text = "Apache-2.0" }
-# Contact email deliberately omitted: no lab address exists yet. Add a real one
-# before publishing to PyPI, and before it appears on the grant application.
+# >=3.10, not >=3.9: no 3.10+ syntax is strictly required by the source, but 3.9 is
+# end-of-life and this project has NO CI on it, so claiming 3.9 support would be an
+# untested claim. The floor states what we actually verify.
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = [
+  "solana", "security", "static-analysis", "solana-agent-kit",
+  "linter", "guardrail", "pre-commit", "ai-agents",
+]
 authors = [{ name = "Pantronux Research (Lead: Irfan Achmad Firmansyah)" }]
-keywords = ["solana", "security", "static-analysis", "solana-agent-kit", "linter", "guardrail"]
+# No contact address on 0.1.0a0: no lab mailbox exists yet. Deliberately omitted
+# rather than invented -- a placeholder on a domain we do not own would surface on
+# the PyPI page and in the grant record. Add a real one before the 0.1.0 release.
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
+  # No "License ::" classifier: PEP 639 supersedes it, and the SPDX expression in
+  # `license` above is what PyPI renders. Declaring both makes the build fail.
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Security",
   "Topic :: Software Development :: Quality Assurance",
+  "Typing :: Typed",
 ]
+# No "Framework :: AsyncIO" classifier: this is a synchronous CLI. Adding a
+# classifier to satisfy a checklist is a false claim a reviewer can disprove in one
+# command. Keep every metadata field verifiable.
+#
 # ponytail: no runtime dependencies. The engine is stdlib-only by design, which is
 # what makes it usable as a pre-commit hook without touching the caller's env.
 dependencies = []
@@ -29,13 +48,24 @@ dependencies = []
 [project.optional-dependencies]
 # The optional LLM intent-mismatch pass reads its provider from LLM_* env vars.
 llm = ["openai>=1.0"]
+dev = ["pytest>=7", "build>=1.0"]
 
 [project.scripts]
 sak-guard = "sak_guard.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Pantronux-Research/sak-guard"
+Repository = "https://github.com/Pantronux-Research/sak-guard.git"
 Issues = "https://github.com/Pantronux-Research/sak-guard/issues"
+Changelog = "https://github.com/Pantronux-Research/sak-guard/releases"
+Security = "https://github.com/Pantronux-Research/sak-guard/security/policy"
 
 [tool.setuptools]
 packages = ["sak_guard"]
+
+[tool.setuptools.package-data]
+sak_guard = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

@@ -1,9 +1,16 @@
 - id: sak-guard
   name: sak-guard (Solana agent static security)
-  description: Static pre-commit security check for Solana agent and client code.
+  description: >
+    Static pre-commit security check for Solana agent and client code. Catches the
+    secret handling, eval/shell-injection and intent-mismatch classes that a runtime
+    transaction firewall cannot see, because they live in the source.
   entry: sak-guard
   language: python
-  types_or: [python]
+  # `types` requires ALL listed tags; `types_or` requires ANY. With a single tag they
+  # are equivalent, and `types` is the more widely supported of the two across
+  # pre-commit versions, so it is what we declare.
+  types: [python]
   args: ["--fail-on", "high"]
   pass_filenames: true
   require_serial: false
+  minimum_pre_commit_version: "2.9.0"
