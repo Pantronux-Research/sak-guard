@@ -176,6 +176,29 @@
   note         = {Accessed 2026}
 }
 
+%% ===== Related methodological work (verified via CrossRef) =====
+@article{kuhne2022multilevel,
+  title   = {Multi-dimensional multi-level modeling},
+  author  = {K{\"u}hne, Thomas},
+  journal = {Software and Systems Modeling},
+  volume  = {21},
+  number  = {2},
+  pages   = {543--559},
+  year    = {2022},
+  doi     = {10.1007/s10270-021-00951-5}
+}
+
+@inproceedings{ulain2024featureselection,
+  title     = {Skin Cancer Detection with Multimodal Data: A Feature Selection
+               Approach Using Genetic Programming},
+  author    = {Ain, Qurrat Ul and Xue, Bing and Al-Sahaf, Harith and Zhang, Mengjie},
+  booktitle = {Communications in Computer and Information Science},
+  pages     = {254--269},
+  year      = {2024},
+  publisher = {Springer Nature Singapore},
+  doi       = {10.1007/978-981-99-8696-5_18}
+}
+
 %% ===== Cluster C: blockchain client-side and smart-contract security =====
 @inproceedings{zhao2025soleker,
   title     = {Soleker: Uncovering Vulnerabilities in {Solana} Smart Contracts},
@@ -388,46 +411,37 @@ make four contributions:
 
 \subsection{Precedents in the Author's Prior Work}
 
-This work did not begin from the tooling literature. It is the third stage of a
-research trajectory on the behaviour of transaction-bearing systems under
-adversarial conditions, and the methodological lineage is direct rather than
-decorative. We state the trajectory explicitly, because the three stages share
-one premise and each inverts the question the previous stage answered.
+The two studies below are the conceptual background this work grew out of,
+and the connection we draw is an application of an idea rather than a
+continuation of a plan. It seems more honest to present them that way.
 
-\paragraph{Stage one: credibility as an observable property}
-\cite{firmansyah2022efficacy} modelled adoption of a transaction-bearing
-consumer system through the Technology Acceptance Model, establishing that a
+In \cite{firmansyah2022efficacy} we modelled adoption of a transaction-bearing
+consumer system through the Technology Acceptance Model, and observed that a
 user's willingness to entrust value to an automated channel is governed by
 \emph{perceived credibility} and \emph{self-efficacy} as much as by functional
-utility. The operative finding here is that adoption depends on the
-\emph{verifiable properties} of a system rather than on its uninspected
-capability. An autonomous agent holding a keypair is the limiting case of such a
-system: its credibility cannot rest on the model's stated intent, because that
-intent is not inspectable, so it must reside in the code contract a reviewer can
-actually read. Stage one supplies the \emph{why} of this paper, not merely its
-citation.
+utility. Read from the present vantage point, the relevant observation is a
+narrow one: confidence in such a system rested on properties the user could
+inspect rather than on capabilities they had to take on faith. That observation
+does not dictate anything about autonomous agents, but it is suggestive, since
+an agent holding a keypair is a system whose credibility has no natural home
+unless it is placed in something a reviewer can read.
 
-\paragraph{Stage two: heterogeneous artefacts under a common abstraction}
-\cite{firmansyah2024forensic} addressed post-incident digital evidence
-reconstruction, formalising the heterogeneous artefacts of a fintech e-wallet
-(across User, Transaction and Merchant entities) through an RDF ontology so that
-investigative questions could be answered across dissimilar application data.
-That work established the abstraction requirement this paper inherits:
-\emph{heterogeneous, application-specific artefacts must be mapped onto a common
-abstraction before anomalies become detectable}. There, the abstraction was an
-evidence ontology over application data; here, it is a pattern taxonomy over
-code structure and a dataflow relation over inference artefacts. The abstraction
-is the same move; the artefact domain is different.
+In \cite{firmansyah2024forensic} we built a model for post-incident digital
+evidence reconstruction in fintech e-wallets. The useful by-product of that work
+was a requirement rather than a result: the artefacts of interest (User,
+Transaction and Merchant data, drawn from applications with different internal
+schemas) had to be mapped onto a single abstraction before any investigative
+question could be answered across them. That is a general observation about
+detecting anything in heterogeneous data, and this paper is best understood as
+applying it to a different artefact domain. Where that work generalised acquired
+evidence through an RDF ontology, we generalise over code structure with a
+pattern taxonomy, and over model-derived values with a dataflow relation.
 
-\paragraph{Stage three: inverting the post-incident paradigm}
-The present work inverts what stage two asked. Rather than reconstructing what a
-compromised system left behind, it treats client-side code structure and model
-inference output as \emph{verifiable execution artefacts} and refuses the defect
-before an evidentiary trail of compromise can exist. The forensic question
-\emph{what does this incident leave traceable} becomes the pre-commit question
-\emph{is this inference artefact permitted to reach an execution sink}. Detection
-moves from after the harm to before the commit, and the unit of evidence moves
-from acquired application data to code provenance.
+The connection between the two is a change of when detection happens, which is
+easy to overstate and worth stating plainly. Forensic analysis asks what a
+compromised system left behind. A pre-commit check asks whether a defect can be
+refused before there is anything to investigate. The abstraction requirement is
+the same in both; only the moment of intervention differs.
 
 \subsection{Agent and Tool-Use Security}
 
@@ -463,6 +477,17 @@ indistinguishable from never firing at all. Dedicated work attacks this
 directly through learned code representations \cite{yang2024falsepositives},
 and our evaluation design (\S\ref{sec:eval}) adopts its premise that
 precision must be \emph{measured} on real code rather than asserted.
+
+There is a second, less obvious reason a source-level representation is worth
+constructing at all. Work on interpretable classification shows that an opaque
+input becomes tractable once it is deliberately re-expressed as an inspectable
+structure: \cite{ulain2024featureselection} evolve interpretable feature vectors
+through genetic programming precisely so that a downstream decision rests on a
+representation a human can read. Our provenance gate is a comparable move in a
+different setting. A model completion is not auditable in its raw form, so we
+translate it into a parsed structure and follow the resulting dataflow, which
+makes the question \emph{where did this value come from} answerable by
+inspection rather than by inference about the model.
 
 We differ from these tools in scope rather than method. Bandit and Semgrep are
 general-purpose; they have no notion of a \texttt{solders} commitment level, of
@@ -928,24 +953,28 @@ engine currently treats model output as untrusted data, and the natural
 generalisation is to compare an implementation against its declared
 natural-language description and fail the build on divergence---a static
 detection of the very class of attack that \cite{greshake2023notwhat} and
-\cite{zhan2024injecagent} demonstrate at runtime. Fourth, a semantic metamodel. The present
-taxonomy is a shared rule format only in the informal sense that pre-commit and
-runtime layers could both cite it. The natural progression is to make that
-sharing formal, projecting the taxonomy into an ontology-guided specification
-expressed in \mbox{OWL} with \mbox{SHACL} constraints, so that each defect
-family becomes a machine-checkable condition over a declared artefact model
-rather than a hand-written predicate in a particular analyser. This is where the
-forensic abstraction of \cite{firmansyah2024forensic} re-enters as something
-more than lineage. That work modelled acquired evidence as an ontology over
-User, Transaction and Merchant entities; the artefacts here---inference
-completions, tainted tool parameters, sink arguments, and the runtime execution
-traces a firewall observes---are the same kind of object at a different stage of
-the lifecycle. A single metamodel over both would let a pre-commit guardrail, a
-runtime execution trace and a post-incident forensic artefact be validated
-against one specification, closing the loop the three stages of this research
-trajectory opened: a defect declared once, enforced statically before the
-commit, monitored at execution, and reconstructible after an incident from
-evidence expressed in the same vocabulary. The artifact, its specification and its full
+\cite{zhan2024injecagent} demonstrate at runtime. Fourth, a shared specification layer, which is
+where we expect to take this work next. Today each of our patterns is a
+hand-written predicate inside one analyser, and the pre-commit and runtime
+layers agree on what a defect is only by convention. A modest and concrete
+version of the fix is to write the defect families down once as a schema of the
+artefacts involved (the inference source, the propagated value, the sink
+argument, the runtime trace), and express the rules as constraints over that
+schema using standard vocabulary---RDF with \mbox{OWL} and \mbox{SHACL}---rather
+than as Python. The same specification could then be checked statically before a
+commit, evaluated against a runtime trace, and used to query post-incident
+evidence, because all three would be instances of one artefact model.
+
+The idea of relating a model to what it describes is of course not new, and the
+metamodeling literature has thought carefully about the levels and relationships
+involved \cite{kuhne2022multilevel}; our interest here is narrow and practical,
+namely whether a defect definition expressed once can be enforced at several
+points in a system's life without being restated at each. This is the direction
+we intend to pursue at doctoral level, on inference-artefact integrity and
+provenance for autonomous agent systems. We are not claiming that a single
+metamodel removes the need for per-layer work, and the constraints would
+initially cover only the artefact shapes we can already parse; the point is to
+stop writing the same defect down three times in three vocabularies. The artifact, its specification and its full
 verification report are public at
 \url{https://github.com/Pantronux-Research/sak-guard}.
 
