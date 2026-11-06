@@ -1,0 +1,181 @@
+%% Citation Reading Audit -- companion to paper.tex
+%% Reports, per cited work: what it actually says, how the manuscript uses it,
+%% whether the claim is supported, and what could not be read.
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=2.1cm]{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{enumitem}
+
+\newcommand{\ok}{\textcolor{green!55!black}{\textbf{supported}}}
+\newcommand{\fix}{\textcolor{red!75!black}{\textbf{corrected}}}
+\newcommand{\weak}{\textcolor{orange!90!black}{\textbf{overstated--softened}}}
+\newcommand{\noread}{\textcolor{red!75!black}{NOT READ}}
+\newcommand{\absread}{\textcolor{orange!90!black}{abstract only}}
+\newcommand{\fullread}{\textcolor{green!55!black}{read}}
+
+\title{\vspace{-1.6cm}\textbf{Citation Reading Audit}\\[2pt]
+\large Every work cited in \texttt{paper.tex}: what it says, how we use it,\\
+and whether the claim survives contact with the source}
+\author{Pantronux Research --- Irfan Achmad Firmansyah}
+\date{2026-11-06}
+
+\begin{document}
+\maketitle
+\vspace{-0.5cm}
+
+\section*{Why this document exists}
+
+The manuscript cited 27 works whose bibliographic metadata had been resolved mechanically
+(CrossRef, OpenAlex, DataCite). Metadata verification proves a paper \emph{exists} and is
+correctly attributed. It does not prove the author has \emph{read} it, and several sentences in
+\textsection II make claims about what those papers found. This audit closes that gap: every entry
+is classified by how much of it was actually obtained and examined, and each manuscript claim is
+checked against the source text.
+
+\section*{Result in one line}
+
+\begin{center}
+\fbox{\parbox{0.93\textwidth}{\centering
+Of 27 cited works, \textbf{19 were obtainable} and \textbf{8 are paywalled}.
+The passages actually read: \textbf{16} full-text or abstract, \textbf{3} partial.
+\textbf{2 citation errors} were found and corrected; \textbf{1 manuscript claim} was found
+unsupported and softened. \textbf{8 works rest on metadata alone} and are listed at \S4.}}
+\end{center}
+
+\section{Corrections made as a result of reading}
+
+\subsection*{C1 --- \texttt{zou2023universal}: two authors were missing \fix}
+
+The bibliography listed four authors. The paper has \textbf{six}:
+\begin{quote}\small
+Andy Zou, Zifan Wang, \textbf{Nicholas Carlini}, \textbf{Milad Nasr}, J. Zico Kolter,
+Matt Fredrikson.
+\end{quote}
+Carlini and Nasr were absent. This is the kind of error a reviewer finds by clicking the arXiv
+link, so it matters more than its size. Corrected to the full six-author list.
+
+\subsection*{C2 --- \texttt{yang2024falsepositives}: two authors did not exist \fix}
+
+The bibliography listed seven authors, including \emph{Jin, Yidan} and \emph{Chen, Zhenyu}. Neither
+appears on the paper. The authoritative list is five:
+\begin{quote}\small
+Yixin Yang, Ming Wen, Xiang Gao, Yuting Zhang, \textbf{Hailong Sun}.
+\end{quote}
+Two names had been carried over from a search result rather than from the record of the paper
+itself, and a real author (Sun) was missing. Corrected to five.
+
+\subsection*{C3 --- \texttt{hou2024llmse}: our claim was broader than the paper \weak}
+
+The manuscript used this citation to support: \emph{``the transition from LLMs as text generators
+to LLMs as actors is the defining architectural shift in contemporary software engineering.''}
+
+The paper is a systematic literature review of LLMs for software engineering across code
+generation, testing, and maintenance. It surveys \emph{LLMs in SE generally}, and is not a study
+of the agent-as-actor shift, nor does it make that claim. Our sentence was attributing to it an
+argument it does not make. Softened to cite it for the area being surveyed, not the thesis.
+
+\section{Per-work audit}
+
+Legend: \fullread{} = text examined \quad \absread{} = abstract examined \quad
+\noread{} = metadata only.
+
+\small
+\begin{longtable}{@{}p{2.45cm}p{2.5cm}p{1.5cm}p{4.0cm}p{3.6cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Venue / year} & \textbf{Extent} & \textbf{What it actually says} & \textbf{How we use it} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Key} & \textbf{Venue / year} & \textbf{Extent} & \textbf{What it actually says} & \textbf{How we use it} \\
+\midrule
+\endhead
+
+\multicolumn{5}{@{}l}{\textit{Cluster A --- agent and tool-use security}}\\[2pt]
+zhan2024 & ACL Findings 2024 & \absread & Benchmark of 1{,}054 cases, 17 user tools, 62 attacker tools; malicious instructions embedded in content manipulate agents into harmful actions; 30 agents evaluated & Tool-integrated agents are attackable. \ok \\
+jia2025 & ACL 2025 & \absread & Reframes agent security from preventing harmful actions to \emph{ensuring task alignment}; test-time verification of each action & Precedent for checking rather than blocking. \ok \\
+zou2023 & arXiv 2023 & \fullread & Optimisation-based adversarial suffixes transfer across aligned models & Alignment is not a reliable boundary. \ok \\
+chen2024 & arXiv 2024 & \fullread & Structured queries separate instructions from data at the interface & System-level defence precedent. \ok \\
+greshake2023 & ACM AISec 2023 & \fullread & Indirect prompt injection: attacker text in retrieved data redirects application behaviour & The origin of the IPI threat. \ok \\
+owasp2024 & OWASP (web) & \fullread & Top-10 risk taxonomy for LLM/GenAI applications; prompt injection listed first & Practitioner taxonomy. \ok \\
+gandhi2026 & TechRxiv 2026 & \noread & TechRxiv refused automated fetch (403); metadata verified only & Claim of systemic AI-development risk. \noread \\
+cao2026 & IEEE BigDIA 2026 & \noread & Paywalled; metadata verified only & Survey of prompt-injection defences. \noread \\
+\addlinespace
+\multicolumn{5}{@{}l}{\textit{Cluster B --- static analysis and taint tracking}}\\[2pt]
+hou2024 & ACM TOSEM 2024 & \absread & Systematic literature review: LLMs across SE tasks & Area surveyed, \emph{not} the agent-shift thesis. \weak \\
+yang2024fp & IEEE SANER 2024 & \noread & Paywalled. Title claim: code representation learning reduces static-analyser false positives & Methodological precedent for measuring precision. \noread \\
+borlakova2026 & Soft Meas.\ \& Comp.\ 2026 & \noread & Paywalled; metadata verified only & Comparative tool evaluation. \noread \\
+shimchik2019 & ISPRAS Proc.\ 2019 & \fullread & Static taint analysis for vulnerability detection; establishes the technique & Taint analysis is established. \ok \\
+liu2025 & IEEE ISCAIT 2025 & \noread & Paywalled; metadata verified only & High-precision taint-flow precedent. \noread \\
+bandit2024 & GitHub (PyCQA) & \fullread & Python security linter; plugin architecture over AST & Practitioner-scale precedent. \ok \\
+\addlinespace
+\multicolumn{5}{@{}l}{\textit{Cluster C --- blockchain and client-side security}}\\[2pt]
+zhao2025 & IEEE/ACM ASE 2025 & \absread & \textbf{Soleker}: learning-based detection of vulnerabilities in Solana \emph{smart-contract bytecode}, capturing runtime semantics of instructions & Confirms on-chain scope; our gap is the client. \ok \\
+wijaya2025 & Procedia CS 2025 & \absread & Comparative study of Ethereum vs.\ Solana architecture, performance, security & Solana architectural divergence. \ok \\
+khan2024 & IEEE Access 2024 & \absread & Survey of vulnerability-detection techniques in smart-contract tools & Field is heavily surveyed. \ok \\
+wang2023 & ENASE 2023 & \fullread & Evaluation of contemporary smart-contract analysis tools & Coverage is uneven. \ok \\
+tantikul2020 & ICISSP 2020 & \fullread & Survey of Solidity vulnerability classes & Vulnerabilities are contract-level. \ok \\
+venkatraman2026 & IJICT 2026 & \fullread & Review of ML for DeFi: notes traditional auditing and static analysis \emph{fail} on sophisticated threats; calls for explainable AI & Field turning to ML; supports our motivation. \ok \\
+yang2024sok & IEEE ICMC 2024 & \noread & Paywalled; metadata verified only & Systematisation of AI-based contract analysis. \noread \\
+yakovenko2018 & Solana Labs whitepaper & \fullread & PoH for trustless time ordering; sub-second finality; up to 710k tx/s & Solana's architectural basis. \ok \\
+tob2024 & GitHub (Trail of Bits) & \fullread & Dylint-based lints, i.e.\ \textbf{Rust}, inspired by Sealevel Attacks & Ecosystem lints are Rust-program-scoped. \ok \\
+\addlinespace
+\multicolumn{5}{@{}l}{\textit{Cluster D --- author's prior work}}\\[2pt]
+firmansyah2022 & Procedia CS 197 (2022) & \fullread & TAM study of M-banking adoption; self-efficacy, credibility, normative pressure; SEM, 137 respondents, 13 banks & Trust rests on observable properties. \ok \\
+firmansyah2024 & IEEE ICICYTA 2024 & \absread & RDF-ontology forensic model for fintech e-wallet; User/Transaction/Merchant entities; generalising acquired evidence & Heterogeneous artefacts need a common abstraction. \ok \\
+\addlinespace
+\multicolumn{5}{@{}l}{\textit{Related methodological work (VUW)}}\\[2pt]
+kuhne2022 & SoSyM 21(2) 2022 & \noread & Paywalled. Title claim: multi-dimensional levels in metamodelling & Levels/relationships precedent. \noread \\
+ulain2024 & CCIS 2024 & \noread & Paywalled. Title claim: feature \emph{selection} via genetic programming & Weaker fit than her IEEE CIM paper. \noread \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\section{Still unread, and what to obtain}
+
+Eight works rest on verified metadata alone. Four matter to an argument in the manuscript; four
+are cited as context and are lower risk.
+
+\subsection*{Would change the manuscript if read}
+
+\begin{enumerate}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{zhao2025 --- Soleker}, IEEE/ACM ASE 2025, DOI \texttt{10.1109/ase63991.2025.00209}.
+  \emph{The highest-value unread paper.} It is the closest related work: Solana vulnerability
+  detection. Its abstract establishes that it analyses \emph{contract bytecode}, which is what
+  makes our client-layer gap a real gap. If the full text happens to cover Python client tooling,
+  our novelty claim would need revisiting --- the abstract suggests it does not, but I have not
+  confirmed that. \emph{Xplore document id 11334576.}
+\item \textbf{yang2024fp --- Reducing False Positives of Static Bug Detectors}, SANER 2024,
+  DOI \texttt{10.1109/saner60148.2024.00075}. We invoke it as precedent for measuring precision on
+  real code. Worth confirming it says what the title implies.
+\item \textbf{kuhne2022 --- Multi-dimensional multi-level modeling}, SoSyM 2022,
+  DOI \texttt{10.1007/s10270-021-00951-5}. We cite it for a deliberately narrow point, so the risk
+  is low, but it is the citation that anchors the doctoral direction.
+\item \textbf{ulain2024 --- } the CIM 2024 interpretable-feature-vectors paper would be the
+  stronger citation; it is paywalled at Xplore, and her free TechRxiv preprint returns 403 to
+  automated fetching. A manual download should work.
+\end{enumerate}
+
+\subsection*{Lower risk (cited as context)}
+
+\texttt{cao2026survey}, \texttt{borlakova2026}, \texttt{liu2025}, \texttt{yang2024sokai},
+\texttt{gandhi2026}. Each is used to establish that a field exists or is active, not to support a
+specific finding. Metadata verification is proportionate here, though reading them would still be
+better.
+
+\section*{Bottom line}
+
+The bibliography is now accurate in its \emph{facts} --- two author-list errors were real and are
+fixed, and one claim was over-broad and is softened. What remains is coverage: nineteen works were
+reachable and sixteen were examined, but the single most consequential related-work paper for this
+manuscript's novelty argument (Soleker) has been read only at abstract level. That is stated here
+rather than left implicit, and the paper's \textsection II does not depend on it beyond the claim
+its abstract already supports.
+
+\end{document}

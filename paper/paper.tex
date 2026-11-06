@@ -79,7 +79,8 @@
 @misc{zou2023universal,
   title         = {Universal and Transferable Adversarial Attacks on Aligned
                    Language Models},
-  author        = {Zou, Andy and Wang, Zifan and Kolter, J. Zico and Fredrikson, Matt},
+  author        = {Zou, Andy and Wang, Zifan and Carlini, Nicholas and Nasr, Milad and
+                   Kolter, J. Zico and Fredrikson, Matt},
   year          = {2023},
   eprint        = {2307.15043},
   archivePrefix = {arXiv},
@@ -132,7 +133,7 @@
   title     = {Reducing False Positives of Static Bug Detectors Through Code
                Representation Learning},
   author    = {Yang, Yixin and Wen, Ming and Gao, Xiang and Zhang, Yuting and
-               Jin, Yidan and Wang, Haoyu and Chen, Zhenyu},
+               Sun, Hailong},
   booktitle = {2024 {IEEE} International Conference on Software Analysis,
                Evolution and Reengineering ({SANER})},
   year      = {2024},
@@ -357,9 +358,10 @@ large language models, {Solana}, software security, pre-commit guardrails
 \section{Introduction}
 %% ===========================================================================
 
-The transition from LLMs as text generators to LLMs as \emph{actors} is the
-defining architectural shift in contemporary software engineering
-\cite{hou2024llmse}. An agent no longer merely produces a completion; it
+Software engineering has spent the last few years absorbing language models
+as tools, a shift surveyed systematically across the field \cite{hou2024llmse}.
+A newer development sits on top of that: the model is no longer only generating
+an artefact for a human to apply, it is selecting a tool and applying it. An agent no longer merely produces a completion; it
 selects a tool, constructs its arguments, and executes it. When the domain is a
 decentralized system, those tools hold the keys. A single agent-authored
 function may read a keypair, assemble a transaction, and submit it, and the
