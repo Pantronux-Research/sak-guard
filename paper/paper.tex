@@ -272,6 +272,12 @@
 \usepackage{booktabs}
 \usepackage{url}
 \usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+
+% Underfull boxes in a narrow measure come from long unbreakable
+% identifiers. A small emergencystretch lets the line stretch instead of
+% forcing the spaces between ordinary words to absorb the whole gap.
+\setlength{\emergencystretch}{2em}
 
 
 
@@ -300,13 +306,13 @@ decentralized systems remains concentrated on-chain: Rust and Anchor program
 analysers inspect what executes inside the virtual machine, and runtime
 transaction firewalls inspect what is about to be submitted. Neither observes
 the Python client and agent layer where keypairs are sourced, where transaction
-construction is silently misconfigured, and where unsanitised model output
-reaches a remote procedure call. We present \texttt{sak-guard}, a static
+construction is silently misconfigured, and where unverified inference artefacts
+reach the transaction trust boundary. We present \texttt{sak-guard}, a static
 pre-commit guardrail that operates on that layer, and a nine-pattern taxonomy
 (\mbox{PS-SOL-1} to \mbox{PS-SOL-3}) that formalises its defect classes. We give
 an AST-gated detection formulation that eliminates a class of lexical
 false positives which a naive regular-expression bank cannot avoid, and a
-single-file taint propagation rule that follows model-derived data through
+single-file provenance gate that follows model-derived data through
 \texttt{json.loads} subscripts into transaction sinks. Evaluated against 32
 real tool implementations (5{,}670 lines) drawn from the upstream
 \texttt{sendaifun/solana-agent-kit-py} repository rather than synthetic
@@ -366,8 +372,8 @@ make four contributions:
   \texttt{solders}/\texttt{solana-py} misuse, and model-output taint.
 \item An AST-gated detection formulation (\S\ref{sec:engine}) that resolves
   operator tokens against the parse tree rather than the raw line, and a
-  single-file taint rule that propagates provenance through subscript and
-  attribute access.
+  single-file provenance gate that tracks heterogeneous inference artefacts
+  through subscript and attribute access to the transaction trust boundary.
 \item An empirical evaluation on 32 real upstream tool files (5{,}670 lines)
   reporting per-pattern precision rather than an aggregate
   (\S\ref{sec:eval}).
@@ -382,30 +388,46 @@ make four contributions:
 
 \subsection{Precedents in the Author's Prior Work}
 
-This work did not begin from the tooling literature; it descends from two
-earlier studies of system behaviour under adversarial conditions, and the
-methodological lineage is direct. In \cite{firmansyah2022efficacy} we modelled
-adoption of a transaction-bearing consumer system through the Technology
-Acceptance Model, establishing that users' willingness to entrust value to an
-automated channel is governed by \emph{perceived credibility} and
-\emph{self-efficacy} as much as by functional utility. The operative finding for
-the present work is that confidence in a value-bearing system is a function of
-its observable trust properties, not of its capability. An autonomous agent
-that can move funds is precisely such a system, and its credibility is
-determined by properties a reviewer can inspect in the source.
+This work did not begin from the tooling literature. It is the third stage of a
+research trajectory on the behaviour of transaction-bearing systems under
+adversarial conditions, and the methodological lineage is direct rather than
+decorative. We state the trajectory explicitly, because the three stages share
+one premise and each inverts the question the previous stage answered.
 
-In \cite{firmansyah2024forensic} we developed a forensic analysis model for
-fintech e-wallet applications, using an RDF ontology to generalise acquired
-digital evidence across User, Transaction and Merchant entities so that
-investigative questions could be answered from heterogeneous application data.
-That work formalised the same underlying problem this paper addresses:
-\emph{heterogeneous, application-specific artefacts must be mapped onto a
-common abstraction before anomalies become detectable}. There, the abstraction
-was an evidence ontology; here, it is a pattern taxonomy and a dataflow
-relation. The shift from post-incident forensic reconstruction to pre-commit
-static prevention is the contribution this paper adds: the earlier work asked
-what evidence a compromised system leaves behind, and this work asks how to
-refuse the defect that would generate it.
+\paragraph{Stage one: credibility as an observable property}
+\cite{firmansyah2022efficacy} modelled adoption of a transaction-bearing
+consumer system through the Technology Acceptance Model, establishing that a
+user's willingness to entrust value to an automated channel is governed by
+\emph{perceived credibility} and \emph{self-efficacy} as much as by functional
+utility. The operative finding here is that adoption depends on the
+\emph{verifiable properties} of a system rather than on its uninspected
+capability. An autonomous agent holding a keypair is the limiting case of such a
+system: its credibility cannot rest on the model's stated intent, because that
+intent is not inspectable, so it must reside in the code contract a reviewer can
+actually read. Stage one supplies the \emph{why} of this paper, not merely its
+citation.
+
+\paragraph{Stage two: heterogeneous artefacts under a common abstraction}
+\cite{firmansyah2024forensic} addressed post-incident digital evidence
+reconstruction, formalising the heterogeneous artefacts of a fintech e-wallet
+(across User, Transaction and Merchant entities) through an RDF ontology so that
+investigative questions could be answered across dissimilar application data.
+That work established the abstraction requirement this paper inherits:
+\emph{heterogeneous, application-specific artefacts must be mapped onto a common
+abstraction before anomalies become detectable}. There, the abstraction was an
+evidence ontology over application data; here, it is a pattern taxonomy over
+code structure and a dataflow relation over inference artefacts. The abstraction
+is the same move; the artefact domain is different.
+
+\paragraph{Stage three: inverting the post-incident paradigm}
+The present work inverts what stage two asked. Rather than reconstructing what a
+compromised system left behind, it treats client-side code structure and model
+inference output as \emph{verifiable execution artefacts} and refuses the defect
+before an evidentiary trail of compromise can exist. The forensic question
+\emph{what does this incident leave traceable} becomes the pre-commit question
+\emph{is this inference artefact permitted to reach an execution sink}. Detection
+moves from after the harm to before the commit, and the unit of evidence moves
+from acquired application data to code provenance.
 
 \subsection{Agent and Tool-Use Security}
 
@@ -539,16 +561,25 @@ one pattern in the taxonomy whose detection is \emph{temporal} rather than
 structural, and it is correspondingly the weakest; \S\ref{sec:eval} quantifies
 the cost.
 
-\subsection{PS-SOL-3: Unsanitised Model Output Reaching a Sink}
+\subsection{PS-SOL-3: Inference Artefact Provenance and the Trust Boundary}
 
-The third family operationalises the assumption that model output is
-untrusted. We define a taint relation $T \subseteq \mathrm{Var}$ over a
-single file. A variable is tainted, written $x \in T$, if it is assigned from
-a model-invocation call:
+The third family operationalises the assumption that model output is untrusted,
+and reframes it. We do not treat a completion as text that requires sanitising;
+we treat it as an \emph{inference artefact} whose provenance must be accounted
+for before it is permitted to influence execution. The artefacts in question are
+\emph{heterogeneous}. A raw completion returned by a model-invocation call, a
+tool parameter extracted from that completion, and a value reached through a
+\texttt{json.loads} subscript are structurally dissimilar but originate at the
+same untrusted boundary, and a detector keyed on any one of those shapes
+observes only part of the class. We therefore define a taint relation
+$T \subseteq \mathrm{Var}$ over a single file, in which membership records that
+a variable carries an unverified inference artefact. A variable is tainted,
+written $x \in T$, if it is assigned from a model-invocation call:
 
 \begin{equation}
 \mathrm{source}(x) \iff x \leftarrow f(\cdot), \;
 f \in \mathcal{L},
+\label{eq:source}
 \end{equation}
 
 with $\mathcal{L}$ the model-invocation vocabulary matched on \emph{stems}
@@ -563,14 +594,19 @@ x \in T \;\wedge\; y \leftarrow \mathrm{peel}(x) \;\Rightarrow\; y \in T,
 \label{eq:taint}
 \end{equation}
 
-where $\mathrm{peel}$ denotes subscript or attribute access. This rule is
-essential and was validated empirically: the dominant real-world shape is not
-a direct call but \texttt{json.loads(plan)["recipient"]}, which parses to a
-\texttt{Subscript} node rather than a \texttt{Call}. A tracker that inspects
-only \texttt{Assign(value=Call)} reports \emph{clear} on vulnerable code, a
-silent false negative of exactly the kind this paper argues against. Finally, a
-sink violation is reported when a tainted variable reaches a sensitive
-position:
+where $\mathrm{peel}$ denotes subscript or attribute access. Provenance must
+survive that step or the gate is bypassed by a single \texttt{json.loads}, and
+the rule was validated empirically for precisely that reason: the dominant
+real-world shape is not a direct call but
+\texttt{json.loads(plan)["recipient"]}, which parses to a \texttt{Subscript}
+node rather than a \texttt{Call}. A tracker that inspects only
+\texttt{Assign(value=Call)} reports \emph{clear} on vulnerable code, a silent
+false negative of exactly the kind this paper argues against.
+
+The set $\mathcal{P}$ below is the trust boundary of the transaction layer: the
+critical execution sinks through which an inference artefact would cease to be
+data and become an instruction to move value. A sink violation is reported when
+a tainted variable is permitted to cross it:
 
 \begin{equation}
 \mathrm{violation} \iff \exists\, x \in T,\; c:\;
@@ -578,8 +614,15 @@ x \in A(c) \;\wedge\; f(c) \in \mathcal{P},
 \label{eq:violation}
 \end{equation}
 
-with $\mathcal{P} = \{\texttt{Pubkey}, \texttt{transfer},
-\texttt{send\_transaction}, \texttt{send\_raw\_transaction}\}$.
+Here $\mathcal{P}$ comprises \texttt{Pubkey}, \texttt{transfer},
+\texttt{send\_transaction} and \texttt{send\_\allowbreak raw\_\allowbreak transaction},
+and taken together, (\ref{eq:source})--(\ref{eq:violation}) define a
+\emph{provenance verification gate}: a deterministic predicate that audits
+whether an unverified inference artefact is permitted to cross from the data
+plane into the execution plane. This is not string or variable hygiene. It is
+the static counterpart of a runtime authorisation check, evaluated at commit
+time against the only evidence that exists before execution, namely the shape
+of the code.
 
 %% ===========================================================================
 \section{Detection Engine Architecture}
@@ -663,7 +706,7 @@ following section.
 
 \subsection{Corpus and Method}
 
-The corpus is the upstream repository \texttt{sendaifun/solana-agent-kit-py} at
+The corpus is the upstream repository \texttt{sendaifun/\allowbreak solana-agent-kit-py} at
 its \texttt{main} revision: 32 tool implementation files, 5{,}670 lines,
 fetched unmodified. We deliberately did not author lookalike samples. Samples
 shaped by the same assumptions that shaped the patterns cannot contradict them,
@@ -777,7 +820,7 @@ and pushed:
 \item \textbf{Public-key logging read as a key leak.} \textsc{1d} fired on
   \texttt{logger.info(f"\{kp.pubkey()\}")}. A public key is intended to be
   printed; the suppression described in \S\ref{sec:taxonomy} was added.
-\item \textbf{Division by a module constant.} \texttt{x / LAMPORTS\_PER\_SOL}
+\item \textbf{Division by a module constant.} \texttt{x / LAMPORTS\_\allowbreak PER\_\allowbreak SOL}
   is fixed at import and never zero. Literal and uppercase-constant divisors
   are now excluded, which removed three of five division findings.
 \end{enumerate}
@@ -885,10 +928,24 @@ engine currently treats model output as untrusted data, and the natural
 generalisation is to compare an implementation against its declared
 natural-language description and fail the build on divergence---a static
 detection of the very class of attack that \cite{greshake2023notwhat} and
-\cite{zhan2024injecagent} demonstrate at runtime. Fourth, integration of the
-taxonomy as a shared rule format capable of expressing both static and runtime
-invariants, so that the pre-commit and transaction-firewall layers can agree on
-a single definition of a defect. The artifact, its specification and its full
+\cite{zhan2024injecagent} demonstrate at runtime. Fourth, a semantic metamodel. The present
+taxonomy is a shared rule format only in the informal sense that pre-commit and
+runtime layers could both cite it. The natural progression is to make that
+sharing formal, projecting the taxonomy into an ontology-guided specification
+expressed in \mbox{OWL} with \mbox{SHACL} constraints, so that each defect
+family becomes a machine-checkable condition over a declared artefact model
+rather than a hand-written predicate in a particular analyser. This is where the
+forensic abstraction of \cite{firmansyah2024forensic} re-enters as something
+more than lineage. That work modelled acquired evidence as an ontology over
+User, Transaction and Merchant entities; the artefacts here---inference
+completions, tainted tool parameters, sink arguments, and the runtime execution
+traces a firewall observes---are the same kind of object at a different stage of
+the lifecycle. A single metamodel over both would let a pre-commit guardrail, a
+runtime execution trace and a post-incident forensic artefact be validated
+against one specification, closing the loop the three stages of this research
+trajectory opened: a defect declared once, enforced statically before the
+commit, monitored at execution, and reconstructible after an incident from
+evidence expressed in the same vocabulary. The artifact, its specification and its full
 verification report are public at
 \url{https://github.com/Pantronux-Research/sak-guard}.
 
