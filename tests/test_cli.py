@@ -120,3 +120,41 @@ def test_fixtures_carry_no_local_or_network_dependency():
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v", "--no-header",
                           "-p", "no:cacheprovider"]))
+
+
+def test_nonexistent_path_exits_2():
+    """README: '2 usage or IO error'. A typo'd path must not report success.
+
+    Regression: iter_targets() printed a warning and yielded nothing, so a run over
+    a path that does not exist produced no findings and exited 0 -- the hook passed
+    on a repo it never read.
+    """
+    r = subprocess.run([sys.executable, "-m", "sak_guard.cli", "/definitely/not/here.py"],
+                       capture_output=True, text=True)
+    assert r.returncode == 2, f"expected exit 2, got {r.returncode}: {r.stderr}"
+
+
+def test_prog_name_is_sak_guard():
+    """--help must name the binary users actually type, not the internal one."""
+    r = subprocess.run([sys.executable, "-m", "sak_guard.cli", "--help"],
+                       capture_output=True, text=True)
+    assert "usage: sak-guard" in r.stdout
+    assert "sec-audit" not in r.stdout
+
+
+def test_stdin_dash_reads_stdin():
+    """The documented stdin contract is '-', not a --stdin flag."""
+    fixture = FIXTURES / "vulnerable_solana_keys.py"
+    with open(fixture) as fh:
+        r = subprocess.run([sys.executable, "-m", "sak_guard.cli", "-"],
+                           input=fh.read(), capture_output=True, text=True)
+    assert r.returncode == 1, f"vulnerable stdin should exit 1, got {r.returncode}"
+
+
+def test_malformed_python_does_not_crash():
+    """A pattern must never crash the scan: broken source yields diagnostics, not a traceback."""
+    for src in ("def f(:\n    x = ((\n", "class A:\n  def m(self)\n      pass\n", "", "# c\n"):
+        r = subprocess.run([sys.executable, "-m", "sak_guard.cli", "-"],
+                           input=src, capture_output=True, text=True)
+        assert "Traceback (most recent call last)" not in r.stderr, src
+        assert r.returncode in (0, 1, 2)

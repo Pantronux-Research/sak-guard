@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
-"""sec-audit -- the ALM verification core as a standalone local auditor.
+"""sak-guard -- static security and intent audit for Solana agent code.
 
-The engine (AST parsing, security regex banks, optional LLM intent check) was
-originally only reachable through an HTTP worker transport, which meant using it
-required running a server and POSTing to it. This is the same engine as a plain
-CLI: no HTTP, no server, no registration.
+The engine (AST parsing, a security regex bank, and an optional LLM
+intent-mismatch pass) is stdlib-only and runs as a plain local command: no HTTP,
+no server, no account.
 
-    ./sec-audit path/to/file.py                 # audit a file
-    ./sec-audit src/ --fail-on low              # a tree
-    git diff -U0 | ./sec-audit -                # stdin
-    ./sec-audit f.py --json                     # machine-readable
+    sak-guard path/to/file.py               # audit a file
+    sak-guard src/ --fail-on low            # a tree
+    git diff -U0 | sak-guard -              # stdin
+    sak-guard f.py --json                   # machine-readable
 
 Exit status: 0 clean (or below --fail-on), 1 findings at/above --fail-on,
-2 usage/IO error. Suitable as a pre-commit hook.
+2 usage/IO error. Suitable as a pre-commit hook and in CI.
 
 The optional LLM intent pass is off unless --use-llm is given, and it reads its
 provider settings from the environment (LLM_PROVIDER / LLM_MODEL / LLM_API_KEY /
 LLM_BASE_URL), so no credentials are baked in here.
 
-ponytail: one file, stdlib argparse, no config format. The engine decides
-severity; this only filters and reports. Add a config file when someone needs
-per-directory thresholds -- not before.
+Scope: Python client and agent code -- the layer where agents hold keys and build
+transactions. On-chain Rust programs are covered by the program linters.
+
+Design note: one file, stdlib argparse, no config format. The engine decides
+severity; this only filters and reports.
 """
 import argparse
 import json
@@ -37,14 +38,27 @@ from .strategies import run_strategy
 # actually looks for command injection.
 STRATEGIES = ("default", "security-focused", "ast-heavy", "intent-focused")
 
+PROG = "sak-guard"
+
 SEV_RANK = {"critical": -1, "high": 0, "medium": 1, "low": 2, "info": 3, "unknown": 4}
 FAIL_AT = {"critical": -1, "high": 0, "medium": 1, "low": 2, "any": 4, "never": -2}
 PY_EXT = {".py"}
 FILLER = ("__pycache__", ".venv", "venv", ".git", "node_modules", "build", "dist")
 
 
+class BadPath(Exception):
+    """A path argument did not exist. Carries the offending raw path."""
+
+
 def iter_targets(paths):
-    """Expand files/dirs, skipping vendored and bytecode trees."""
+    """Expand files/dirs, skipping vendored and bytecode trees.
+
+    Raises BadPath for a path that is neither a file nor a directory. The previous
+    version only printed a warning and yielded nothing, so the run ended with no
+    findings and exited 0 -- a typo'd path reported SUCCESS. That is the worst
+    possible failure for a pre-commit hook: the guard reports "clean" on a repo it
+    never read. The README documents exit 2 for a usage/IO error, and this is it.
+    """
     for raw in paths:
         p = Path(raw)
         if p.is_file():
@@ -54,7 +68,7 @@ def iter_targets(paths):
                 if not any(part in FILLER for part in f.parts):
                     yield f
         else:
-            print(f"sec-audit: no such path: {raw}", file=sys.stderr)
+            raise BadPath(raw)
 
 
 def audit(code, intent, language, use_llm, strategy="security-focused"):
@@ -81,8 +95,9 @@ def fmt_issue(i):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        prog="sec-audit",
-        description="Standalone security/intent audit of source files (no server).",
+        prog=PROG,
+        description="Static security and intent audit for Solana agent code "
+                    "(no server, no runtime dependency).",
     )
     ap.add_argument("paths", nargs="*", help="files or dirs; '-' reads stdin")
     ap.add_argument("--intent", default="",
@@ -117,13 +132,19 @@ def main(argv=None):
         run("<stdin>", sys.stdin.read())
         a.paths = [p for p in a.paths if p != "-"]
 
-    for f in iter_targets(a.paths):
+    try:
+        targets = list(iter_targets(a.paths))
+    except BadPath as e:
+        print(f"{PROG}: no such path: {e}", file=sys.stderr)
+        return 2
+
+    for f in targets:
         if a.language == "python" and f.suffix not in PY_EXT:
             continue
         try:
             run(str(f), f.read_text(encoding="utf-8", errors="replace"))
         except OSError as e:
-            print(f"sec-audit: cannot read {f}: {e}", file=sys.stderr)
+            print(f"{PROG}: cannot read {f}: {e}", file=sys.stderr)
             return 2
 
     if a.json:

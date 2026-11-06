@@ -147,3 +147,50 @@ The corpus is third-party code under its own licence and is **not** vendored int
 - The remaining three false positives are all `medium`: two are PS-SOL-2c's known temporal weakness and
   one is a compound-expression divisor in the base bank. **No `critical` or `high` finding in this corpus
   was judged wrong.**
+
+---
+
+## 8. Release-readiness UAT (v0.1.0-alpha)
+
+End-to-end acceptance run over the packaged artifact, not the working tree. Four defects were found and
+fixed; the third is the one that mattered.
+
+| Area | Check | Result |
+|---|---|---|
+| CLI | `--fail-on` at every level, file and stdin | correct |
+| CLI | stdin contract (`-`, not a `--stdin` flag) | correct |
+| CLI | malformed / empty / binary / comment-only Python | no traceback, sane exit |
+| CLI | `--fail-on never` on vulnerable input | exit 0 |
+| Engine | dedup holds across a multi-file scan | 0 duplicates |
+| Engine | `range(max_retries)` no longer flags `base:off_by_one` | 0 findings |
+| Tests | `pytest` | **36 passed** (4 added by this UAT) |
+| Packaging | `python -m build` + `twine check` | **PASSED** both artifacts |
+| Packaging | wheel contents | 6 modules + `py.typed`; no caches, no tests |
+| Packaging | `License-Expression: Apache-2.0`, no `License ::` classifier | correct |
+| CI | `publish.yml` trigger `release: [published]` (+ `workflow_dispatch`) | correct |
+| CI | `id-token: write` scoped to the publish job only | correct |
+| CI | `ci.yml` matrix 3.10–3.13 matches `requires-python >=3.10` | correct |
+| Downstream | pre-commit installs the remote repo, fires on a vulnerable file | exit 1 |
+| Downstream | pre-commit on a clean file | exit 0, "Passed" |
+| Downstream | staged-only semantics | unstaged 0, staged 1 |
+
+### Defects found and fixed by this run
+
+1. **A nonexistent path exited 0 — success on a repo never read.** `iter_targets()` printed
+   `no such path` to stderr, yielded nothing, and the run ended with no findings. Since the exit code is
+   computed from findings (`worst` stays 99 when there are none), it returned **0**. The README documents
+   *"2 usage or IO error"*, so this was a published contract violation, and the worst kind for a
+   pre-commit hook: a typo in a path silently passes. Now raises `BadPath` → exit 2.
+2. **`--help` advertised the wrong program name.** `prog="sec-audit"` — the internal CLI this was
+   decoupled from — so `sak-guard --help` printed `usage: sec-audit`. Now `PROG = "sak-guard"`.
+3. **The module docstring was stale internal text**, describing `sec-audit` and its ALM origin in a
+   public repository. Rewritten for the actual tool and scope.
+4. **The dev venv was empty** (no `build`, `twine`, or `pytest`), so a venv-based build failed with
+   `No module named build`. Environment defect, not a repo defect — the build is verified against the
+   system interpreter, and neither the venv nor `dist/` is tracked.
+
+Four regression tests were added so each CLI contract is pinned: exit 2 on a bad path, the program name,
+the `-` stdin contract, and no traceback on malformed source.
+
+**No false-positive regression:** re-scanning the 32-file corpus after these fixes still yields **11
+findings**, so the §3 numbers stand unchanged.
