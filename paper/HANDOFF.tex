@@ -1,0 +1,294 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=1.7cm]{geometry}
+\usepackage[T1]{fontenc}\usepackage{lmodern}
+\usepackage{booktabs,longtable,array}
+\usepackage[hidelinks]{hyperref}\usepackage{microtype}\usepackage{xcolor}
+\usepackage{enumitem}
+\setlist[itemize]{leftmargin=1.1em,itemsep=0.5pt,topsep=2pt}
+\setlist[enumerate]{leftmargin=1.4em,itemsep=0.5pt,topsep=2pt}
+\setlength{\parindent}{0pt}\setlength{\parskip}{2.5pt}
+\begin{document}
+\begin{center}
+{\LARGE\bfseries sak-guard --- Research Handoff and State Summary}\\[4pt]
+Paused 2026-11-06 $\cdot$ \texttt{Pantronux-Research/sak-guard} @ \texttt{c6bc1e8}\\[2pt]
+{\small Pantronux Research --- Irfan Achmad Firmansyah}
+\end{center}
+\vspace{2pt}\hrule\vspace{6pt}
+\section*{sak-guard --- Research Handoff and State Summary}
+
+\textbf{Prepared:} 2026-11-06
+\textbf{Status:} PAUSED at owner's direction --- work resumes on request
+\textbf{Repo:} https://github.com/Pantronux-Research/sak-guard (public, \texttt{main} @ \texttt{c6bc1e8})
+\textbf{Local tree:} \texttt{/home/kuro/recon/sak-guard/}
+
+This document exists so that context lost between sessions does not have to be
+reconstructed. It records what the project *is*, what is *done*, what is
+*pending*, and the specific facts needed to resume without re-deriving them.
+
+\vspace{3pt}\hrule\vspace{5pt}
+
+\subsection*{1. What the project is}
+
+\textbf{\texttt{sak-guard}} --- a static pre-commit security guardrail for the Python client
+and agent layer of Solana applications.
+
+\textbf{The positioning that matters:} every existing Solana security tool observes
+the wrong layer. On-chain linters and scanners (Trail of Bits \texttt{solana-lints},
+Soleker) inspect contracts and bytecode. Runtime firewalls inspect a transaction
+at submission. **Neither sees the Python code where an agent sources a keypair,
+misconfigured a commitment level, or passed unvalidated model output into a
+transaction sink.** \texttt{sak-guard} operates there, at commit time.
+
+It is framed as the \textbf{static complement to a runtime transaction firewall} ---
+not a competitor. The firewall decides whether a transaction may execute;
+\texttt{sak-guard} decides whether the code that builds it should be merged.
+
+\textbf{Applicant / entity (for the grant):}
+\begin{itemize}
+\item Name: Irfan Achmad Firmansyah
+\item Entity: Pantronux Research (Solo Builder)
+\item Region: Indonesia
+\item Wallet: \texttt{Ca6GSvPdnkKX3zSbqt6aPVzkmLXNoBaaP62hxPY3RbLd}
+\item Contact: \texttt{Pantronux-Research/sak-guard}
+\end{itemize}
+
+\vspace{3pt}\hrule\vspace{5pt}
+
+\subsection*{2. Technical state}
+
+\subsubsection*{The engine}
+
+\texttt{sak\_guard/} --- \texttt{analyzer.py}, \texttt{strategies.py}, \texttt{cli.py}, \texttt{solana.py}, \texttt{\_\_init\_\_.py}.
+Pure stdlib, no runtime dependencies, installable as a pre-commit hook that does
+not touch the caller's environment.
+
+\textbf{Nine patterns in three families:}
+
+\begin{longtable}{@{}p{0.17	extwidth} p{0.17	extwidth} p{0.17	extwidth} @{}}\toprule
+ID & Family & Detects \\
+\midrule
+PS-SOL-1 (a–d) & Key material & base58/seed literals, 12/24-word mnemonics, \texttt{b58decode} literals bound to key-like names, key names interpolated into f-strings \\
+PS-SOL-2a & solders/solana-py misuse & submission with no commitment and no confirmation \\
+PS-SOL-2b & " & \texttt{simulate\_transaction} result whose \texttt{.err} is never checked \\
+PS-SOL-2c & " & blockhash $\rightarrow$ intervening work $\rightarrow$ send (temporal, heuristic) \\
+PS-SOL-3 (a–d) & Inference artefact provenance & unverified model output reaching \texttt{Pubkey()}, \texttt{transfer}, \texttt{send\_transaction}, \texttt{send\_raw\_transaction} \\
+\bottomrule\end{longtable}
+
+Every pattern emits \texttt{found} / \texttt{clear} / \texttt{n/a}. Non-Solana input returns \texttt{n/a}
+rather than \texttt{clear}, so a clean generic-Python file is never mistaken for a
+clean Solana file.
+
+\subsubsection*{Verified state}
+
+\begin{verbatim}
+tests        : 36 passed, exit 0
+corpus       : 32 real files, 5,670 lines (sendaifun/solana-agent-kit-py @ main)
+findings     : 11        precision: 73% (8 true / 3 false)
+trajectory   : 41% -> 57% -> 73%
+cli contract : --fail-on all levels correct; stdin is '-' (not --stdin)
+               exit 0 clean / 1 findings / 2 usage-or-IO
+packaging    : build + twine check PASS; License-Expression: Apache-2.0
+               (PEP 639, no License:: classifier); wheel has no caches or tests
+ci           : publish.yml on release:[published], id-token scoped to publish job
+               ci.yml matrix 3.10-3.13 == requires-python >=3.10
+downstream   : pre-commit installs the repo; vulnerable -> 1, clean -> 0
+\end{verbatim}
+
+\textbf{Per-pattern precision:} PS-SOL-1 and PS-SOL-3 produced \textbf{zero false positives}
+across 5,670 lines. PS-SOL-2c is the weak pattern at \textbf{3/5} --- both errors come
+from a blockhash fetched on the line immediately before the send still counting
+the send itself as intervening work. It is retained at \texttt{medium} severity
+deliberately, and its measured failure is published.
+
+\subsubsection*{Defects found in our own tool by the evaluation}
+
+Fixed: slash-in-literal read as division (now AST-gated on \texttt{ast.BinOp(ast.Div)});
+\texttt{f"\{kp.pubkey()\}"} read as a key leak; division by a module constant;
+duplicate emission; \texttt{range(max\_retries)} flagged as an off-by-one;
+a nonexistent path exiting \textbf{0} (silent success --- the worst pre-commit failure
+mode); \texttt{prog="sec-audit"} instead of \texttt{sak-guard}.
+
+\vspace{3pt}\hrule\vspace{5pt}
+
+\subsection*{3. The paper}
+
+\texttt{paper/paper.tex} --- \textbf{TechRxiv preprint}, \texttt{\textbackslash\{\}documentclass[conference]\{IEEEtran\}},
+self-contained (BibTeX embedded in a \texttt{filecontents*} block).
+
+\textbf{Title:} *AST-Driven Static Analysis and Taint Tracking for Autonomous Agent
+Execution Layers in Decentralized Systems: The \texttt{sak-guard} Pre-Commit Guardrail
+for Solana Agent Kit*
+
+\textbf{Sections:} I Introduction $\cdot$ II Related Work and Theoretical Framing $\cdot$
+III Threat Model and Taxonomy $\cdot$ IV Detection Engine Architecture $\cdot$
+V Empirical Evaluation $\cdot$ VI Limitations and Threats to Validity $\cdot$
+VII Conclusion and Future Work
+
+\textbf{Terminology established:} PS-SOL-3 is framed as **inference artefact
+provenance\textbf{; the dataflow rules are a }provenance verification gate**; the sink
+set is the \textbf{transaction layer's trust boundary}. The artefacts tracked are
+\textbf{heterogeneous inference artefacts} (a completion, a tool parameter extracted
+from it, a \texttt{json.loads} subscript).
+
+\textbf{Compilation (verified, Docker \texttt{texlive/texlive}):}
+\begin{verbatim}
+7 pages · 27 bibitems · 0 undefined citations · 0 undefined references
+0 overfull hbox · 11 underfull · recency 24/27 = 89% (target >=80%)
+\end{verbatim}
+
+\textbf{Build:} \texttt{paper/build.sh} --- clears generated files first, falls back to Docker
+when \texttt{pdflatex} is absent. **Never build by hand on a tree that already contains
+a \texttt{references.bib}** (see §6).
+
+\textbf{Future-work direction anchored:} a shared specification layer --- write defect
+families once as an artefact schema and express rules as OWL/SHACL constraints,
+checkable statically, against runtime traces, and over post-incident evidence.
+This is the stated \textbf{doctoral direction}: inference-artefact integrity and
+provenance for autonomous agent systems.
+
+\vspace{3pt}\hrule\vspace{5pt}
+
+\subsection*{4. Bibliography state}
+
+27 entries. Every one resolved through CrossRef or OpenAlex --- **none written
+from memory**. arXiv DOIs live at DataCite, not CrossRef.
+
+\textbf{Paywalled (8):} \texttt{firmansyah2024forensic}, \texttt{yang2024falsepositives},
+\texttt{borlakova2026comparative}, \texttt{liu2025bidirectional}, \texttt{kuhne2022multilevel},
+\texttt{ulain2024featureselection}, \texttt{zhao2025soleker}, \texttt{yang2024sokai}.
+
+\textbf{Reading audit:} 27 cited $\cdot$ 19 obtainable $\cdot$ 16 read in full or at abstract
+level $\cdot$ 3 partial $\cdot$ 8 metadata only. See \texttt{paper/CITATION\_AUDIT.tex}.
+
+\textbf{Errors found by reading (fixed in \texttt{c6bc1e8}):}
+\begin{enumerate}
+\item \texttt{zou2023universal} listed 4 authors --- the paper has \textbf{6} (Carlini, Nasr missing).
+\item \texttt{yang2024falsepositives} listed 7 --- \textbf{two did not exist} (Jin, Chen) and one real
+\end{enumerate}
+   author (Sun) was missing. Corrected to 5.
+\begin{enumerate}
+\item \texttt{hou2024llmse} was cited for a thesis it does not advance (it is an SLR of LLMs
+\end{enumerate}
+   across SE). Claim rewritten.
+
+\textbf{Known issue to resolve:} the paper cites \texttt{ulain2024featureselection} (CCIS 2024,
+feature *selection*). The stronger and more accurate citation is her
+\textbf{IEEE Computational Intelligence Magazine 19(3):26–41, 2024} paper
+(interpretable feature *vectors*) --- DOI \texttt{10.1109/mci.2024.3401342}, Xplore id
+needed, paywalled at Xplore; free TechRxiv preprint 403s to automated fetch.
+Shortlist written up in \texttt{paper/UL\_AIN\_CITATION\_SHORTLIST.md}.
+
+\vspace{3pt}\hrule\vspace{5pt}
+
+\subsection*{5. Pending work}
+
+\subsubsection*{Blocked on owner action}
+
+\begin{enumerate}
+\item \textbf{PyPI Trusted Publisher (OIDC)} --- must be linked from the PyPI dashboard,
+\end{enumerate}
+   naming workflow \texttt{publish.yml}, environment \texttt{pypi}, repo
+   \texttt{Pantronux-Research/sak-guard}. Until then \texttt{publish.yml} cannot mint its token.
+\begin{enumerate}
+\item \textbf{Grant submission} --- \texttt{SAK\_GUARD\_GRANT\_APPLICATION.md} is complete
+\end{enumerate}
+   (\textbf{\$4,000 / 2 milestones}: M1 \$1,500 packaging, M2 \$2,500 Solana pattern bank).
+   Not submitted.
+\begin{enumerate}
+\item \textbf{Five accidental Superteam agent accounts} (\texttt{schema-probe-*}, zero
+\end{enumerate}
+   submissions, zero funds) --- owner decided to leave them dormant. No self-service
+   removal exists.
+
+\subsubsection*{Papers to retrieve (ranked by impact if read)}
+
+\begin{longtable}{@{}p{0.17	extwidth} p{0.17	extwidth} p{0.17	extwidth} @{}}\toprule
+Work & DOI / ID & Why it matters \\
+\midrule
+\textbf{Soleker} ASE 2025 & \texttt{10.1109/ase63991.2025.00209}, Xplore \textbf{11334576} & closest related work; its abstract confirms it analyses contract *bytecode*, which is what makes our client-layer gap real --- but full text unread \\
+\textbf{Ul Ain} IEEE CIM 2024 & \texttt{10.1109/mci.2024.3401342} & stronger citation than the CCIS paper currently used \\
+\textbf{Yang et al.} SANER 2024 & \texttt{10.1109/saner60148.2024.00075} & invoked as methodological precedent \\
+\textbf{Kühne} SoSyM 2022 & \texttt{10.1007/s10270-021-00951-5} & anchors the doctoral direction \\
+*lower risk* & borlakova, liu, yang2024sokai, cao, gandhi & cited as field context \\
+\bottomrule\end{longtable}
+
+\subsubsection*{Technical, not blocking}
+
+\begin{itemize}
+\item PS-SOL-2c precision (3/5) --- a genuine improvement target; the failure mode is
+\end{itemize}
+  identified precisely (adjacent-line firing).
+\begin{itemize}
+\item No recall claim is made: no ground-truth labels exist for the corpus. A
+\end{itemize}
+  multi-repository corpus with adjudicated labels is required before any recall
+  figure would be defensible.
+
+\vspace{3pt}\hrule\vspace{5pt}
+
+\subsection*{6. Traps learned (do not re-learn these)}
+
+\begin{itemize}
+\item \textbf{\texttt{filecontents*} does NOT overwrite an existing \texttt{references.bib}.} A stale
+\end{itemize}
+  copy silently shadows the embedded block and \texttt{bibtex} drops whatever changed in
+  it \textbf{with no warning}. The \texttt{filecontents} package cannot fix it --- it is
+  obsolete and defers to the kernel. Use \texttt{build.sh}.
+\begin{itemize}
+\item \textbf{Zero undefined citations $\neq$ clean compile.} Citations and cross-references are
+\end{itemize}
+  separate counters. A \texttt{\textbackslash\{\}ref} to an unlabelled equation renders as \texttt{??} while the
+  citation count stays 0. Check both.
+\begin{itemize}
+\item \textbf{Verify the effect, not the write.} A green local check cannot distinguish a
+\end{itemize}
+  pushed commit from one that never left the machine. Scrub-token $\rightarrow$ push is one
+  atomic sequence: set token URL $\rightarrow$ push $\rightarrow$ scrub $\rightarrow$ \textbf{verify from the remote}.
+\begin{itemize}
+\item \textbf{\texttt{gitignore} does not untrack.} \texttt{git add -A} before writing \texttt{.gitignore}
+\end{itemize}
+  commits bytecode; use \texttt{git rm -r --cached}.
+\begin{itemize}
+\item \textbf{A path that does not exist must not exit 0.} An exit code derived from
+\end{itemize}
+  findings *present* returns success when a path yields no files --- a typo silently
+  passes the hook. Assert the exit code for inputs that \textbf{must fail}.
+\begin{itemize}
+\item \textbf{Metadata verification $\neq$ having read the paper.} Bibliographic facts can be
+\end{itemize}
+  perfectly resolved while the claim attached to them is unsupported, and author
+  lists can be wrong in both directions. Read the abstract at minimum.
+\begin{itemize}
+\item \textbf{Never fabricate a citation field.} A DOI, venue or year that could not be
+\end{itemize}
+  resolved is marked for author confirmation, never guessed.
+
+\vspace{3pt}\hrule\vspace{5pt}
+
+\subsection*{7. Where everything lives}
+
+\begin{verbatim}
+/home/kuro/recon/sak-guard/            release tree (public repo)
+  sak_guard/{analyzer,strategies,cli,solana,__init__}.py
+  tests/{test_cli.py,test_solana_patterns.py,fixtures/}
+  docs/{SOLANA_PATTERN_BANK_SPEC.md,M2_VERIFICATION_REPORT.md}
+  paper/{paper.tex,build.sh,CITATION_AUDIT.tex,UL_AIN_CITATION_SHORTLIST.md,README.md}
+  .github/workflows/{publish.yml,ci.yml}
+  .pre-commit-hooks.yaml  pyproject.toml  README.md  SECURITY.md  LICENSE
+
+/home/kuro/recon/SAK_GUARD_GRANT_APPLICATION.md    ($4k / 2 milestones)
+/home/kuro/recon/SOLANA_RECON_DOSSIER.md
+/home/kuro/recon/ACCIDENTAL_AGENT_ACCOUNTS.md
+/home/kuro/recon/fpcheck/real/                     32-file evaluation corpus
+\end{verbatim}
+
+\textbf{Commits of record:} \texttt{c6bc1e8} (citation corrections) $\cdot$ \texttt{c6bc1e8}-1 \texttt{8fbcb11}
+(II-A recalibration + VUW citations) $\cdot$ \texttt{6c9b06a} (verified DOI + build.sh) $\cdot$
+\texttt{05919a3} (UAT fixes) $\cdot$ \texttt{ba9eba3} (base-bank fixes, precision 73\%) $\cdot$
+\texttt{280ccc5} (M2 pattern bank) $\cdot$ \texttt{v0.1.0-alpha} tag.
+
+\textbf{One-line resume:} the tool works and is measured; the paper is submission-ready
+except for four paywalled papers worth reading and the PyPI publisher link; the
+grant is written and unsubmitted.
+
+\end{document}
