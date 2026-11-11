@@ -12,5 +12,8 @@
   types: [python]
   args: ["--fail-on", "high"]
   pass_filenames: true
+  # Each file uses an isolated worker. Consumers can set an exhaustive `files`
+  # filter and require_serial: true for their transaction/key-handling paths.
+  # Do not hardcode application-specific paths in this reusable hook manifest.
   require_serial: false
   minimum_pre_commit_version: "2.9.0"

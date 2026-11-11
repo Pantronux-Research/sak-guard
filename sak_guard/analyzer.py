@@ -21,6 +21,7 @@ import logging
 import os
 import re
 from typing import List, Dict, Optional
+from .limits import analysis_entry
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,10 @@ class LLMClient:
         headers["User-Agent"] = "AgentVerificationNetwork/1.0"
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            payload = resp.read(1024 * 1024 + 1)
+            if len(payload) > 1024 * 1024:
+                raise ValueError("LLM response exceeds the 1 MiB limit")
+            return json.loads(payload.decode("utf-8"))
 
     def _chat_openai(self, system_prompt: str, user_prompt: str, temperature: float) -> Optional[str]:
         base = self.base_url or "https://api.openai.com/v1"
@@ -244,7 +248,7 @@ def _llm_analyze_intent(code: str, intent: str, language: str) -> Optional[List[
     )
 
     raw = client.chat(_INTENT_SYSTEM_PROMPT, user_prompt)
-    if raw is None:
+    if not isinstance(raw, str):
         return None
 
     # Parse the JSON response — be tolerant of markdown wrappers
@@ -256,21 +260,39 @@ def _llm_analyze_intent(code: str, intent: str, language: str) -> Optional[List[
 
     try:
         data = json.loads(text)
-    except json.JSONDecodeError:
+    except (ValueError, RecursionError):
         logger.warning("LLM returned non-JSON response, falling back to heuristics")
         return None
 
+    if not isinstance(data, dict):
+        logger.warning("LLM response was not an object; falling back to heuristics")
+        return None
     issues = data.get("issues", [])
+    if not isinstance(issues, list):
+        logger.warning("LLM 'issues' was not a list; falling back to heuristics")
+        return None
 
-    # Normalize issue format to match our standard schema
+    # Normalize issue format to match our standard schema. Each entry must be an
+    # object: `[null]` or `["text"]` used to raise AttributeError on .get and
+    # crash the optional pass (SG-20).
     normalized: List[Dict] = []
     for issue in issues:
+        if not isinstance(issue, dict):
+            continue
+        sev = str(issue.get("severity", "medium")).lower()
+        if sev not in ("critical", "high", "medium", "low", "info"):
+            sev = "medium"
+        try:
+            line = int(issue.get("line", 0) or 0)
+        except (TypeError, ValueError, OverflowError):
+            line = 0
+        line = max(0, min(line, len(code.split("\n"))))
         normalized.append({
-            "type": issue.get("type", "intent_mismatch"),
-            "severity": issue.get("severity", "medium"),
-            "line": issue.get("line", 0),
-            "description": issue.get("description", ""),
-            "suggestion": issue.get("suggestion", ""),
+            "type": str(issue.get("type") or "intent_mismatch"),
+            "severity": sev,
+            "line": line,
+            "description": str(issue.get("description") or ""),
+            "suggestion": str(issue.get("suggestion") or ""),
         })
 
     return normalized
@@ -278,6 +300,7 @@ def _llm_analyze_intent(code: str, intent: str, language: str) -> Optional[List[
 
 # ─── Main entry point ────────────────────────────────────────────────────────
 
+@analysis_entry
 def analyze_code(code: str, intent: str, language: str = "python", use_llm: bool = False) -> dict:
     """
     Main analysis entry point. Runs all analysis passes and combines results.
@@ -322,6 +345,26 @@ def analyze_code(code: str, intent: str, language: str = "python", use_llm: bool
         intent_issues = analyze_intent(code, intent, language)
 
     all_issues.extend(intent_issues)
+
+    # Solana client/agent patterns (PS-SOL-1..3). Run here so the default
+    # strategy enforces the domain guardrail too -- previously only
+    # security-focused called this, so --strategy default silently disabled it
+    # (SG-07). Appended before de-duplication and before `passed` is derived, so
+    # a critical PS-SOL-* finding can never ship with passed=true (SG-08).
+    from .solana import scan_solana
+    _sol = scan_solana(code)
+    if _sol.get("issues"):
+        all_issues.extend(_sol["issues"])
+    # A rule that raised must not read as a clean file (F4-01/SG-17).
+    for _err in (_sol.get("errors") or []):
+        all_issues.append({
+            "type": "analysis_error",
+            "severity": "critical",
+            "line": 0,
+            "description": f"Required analysis did not complete: {_err}. "
+                           "This result is not a clean verdict.",
+            "suggestion": "Treat as a scan failure and fix the rule or the input.",
+        })
 
     # Calculate confidence
     # De-duplicate here, at the single point where every channel's issues meet.
@@ -399,8 +442,8 @@ def analyze_syntax(code: str, language: str) -> List[Dict]:
             })
 
         # Check for mutable default arguments
-        if isinstance(node, ast.FunctionDef):
-            for default in node.args.defaults:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for default in node.args.defaults + node.args.kw_defaults:
                 if isinstance(default, (ast.List, ast.Dict, ast.Set)):
                     issues.append({
                         "type": "bug",
@@ -434,7 +477,7 @@ def analyze_syntax(code: str, language: str) -> List[Dict]:
     return issues
 
 
-def _ast_division_lines(code: str):
+def _ast_division_lines(code: str, *, tree=None):
     """Line numbers carrying a REAL division (BinOp with ast.Div).
 
     The regex division heuristic below scans raw source lines, so a `/` inside a string
@@ -449,7 +492,8 @@ def _ast_division_lines(code: str):
     """
     import ast as _ast
     try:
-        tree = _ast.parse(code)
+        if tree is None:
+            tree = _ast.parse(code)
     except SyntaxError:
         return None
     lines = set()
@@ -468,17 +512,428 @@ def _ast_division_lines(code: str):
     return lines
 
 
+def _ast_unsafe_eval_lines(code: str, *, tree=None):
+    """Line numbers holding a real eval()/exec() call.
+
+    The previous check was `if "eval(" in line`, which flagged
+    `ast.literal_eval(...)` -- the exact safe alternative the rule's own
+    suggestion recommends -- while `eval (x)` with a space walked through
+    (SG-23). Resolving the call through the AST separates the two, because
+    `literal_eval` is a different attribute name.
+    Returns None when the source does not parse, so the caller can fall back to
+    a word-boundary regex instead of dropping the rule.
+    """
+    try:
+        if tree is None:
+            tree = ast.parse(code)
+    except SyntaxError:
+        return None
+    lines = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        f = node.func
+        if isinstance(f, ast.Name):
+            name = f.id
+        elif isinstance(f, ast.Attribute):
+            name = f.attr
+        else:
+            name = ""
+        if name in ("eval", "exec"):
+            lines.add(getattr(node, "lineno", 0))
+    return lines
+
+
+NUMERIC_NAME_HINTS = ("age", "count", "num", "id", "year", "price", "amount",
+                      "total", "size", "length", "index", "score")
+
+
+def _iter_nodes_local(root):
+    """Iterative pre-order walk; no recursion, so deep expressions cannot crash."""
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        yield node
+        stack.extend(ast.iter_child_nodes(node))
+
+
+
+
+def _ast_concat_suspects(code: str, *, tree=None):
+    """line -> [variable] for `"text" + var + "text"` where var looks numeric.
+
+    Flattens each *maximal* Add chain exactly once. Processing every Add node in
+    the tree re-walked the same left-associated subtree repeatedly, which was
+    quadratic: an 8,000-term addition (16 KB) exceeded ten seconds (seventh-pass
+    F7-H09). Returns None when the source does not parse.
+    """
+    try:
+        if tree is None:
+            tree = ast.parse(code)
+    except SyntaxError:
+        return None
+
+    from .dataflow import Interpreter
+    analysis = Interpreter(tree, lambda node, state: False, {}).run()
+
+    # Parent map, so a node that is itself an operand of an Add is skipped: its
+    # enclosing chain already covers it.
+    parent: Dict[int, ast.AST] = {}
+    for node in _iter_nodes_local(tree):
+        for child in ast.iter_child_nodes(node):
+            parent[id(child)] = node
+
+    def _is_add(node) -> bool:
+        return isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)
+
+    out = {}
+    for node in _iter_nodes_local(tree):
+        if not _is_add(node):
+            continue
+        par = parent.get(id(node))
+        if par is not None and _is_add(par):
+            continue                      # part of a bigger chain
+        names, has_str = [], False
+        stack = [node]
+        while stack:
+            cur = stack.pop()
+            if _is_add(cur):
+                stack.append(cur.left)
+                stack.append(cur.right)
+            elif isinstance(cur, ast.Constant) and isinstance(cur.value, str):
+                has_str = True
+            elif isinstance(cur, ast.Name):
+                info = analysis.values.get(id(cur))
+                if info is not None and info.numeric:
+                    names.append(cur.id)
+            elif isinstance(cur, ast.Constant) and isinstance(cur.value, (int, float)):
+                names.append(repr(cur.value))
+        if not has_str or not names:
+            continue
+        for v in names:
+            out.setdefault(getattr(node, "lineno", 0), []).append(v)
+    return out
+
+
+def _ast_sql_injection(code: str, *, tree=None):
+    """execute()/query() calls whose SQL is built by interpolation (SG-21).
+
+    The old check matched `execute(` followed by `%s` anywhere on the line, so a
+    correctly parameterized query (`execute("... WHERE id=%s", (v,))`) was
+    reported as critical while a query built into a variable and then passed
+    (`q = f"...{v}"; execute(q)`) was missed. What matters is whether the *query
+    string itself* is assembled, so that is what is checked -- including through
+    a variable.
+    """
+    try:
+        if tree is None:
+            tree = ast.parse(code)
+    except SyntaxError:
+        return None
+
+    from .dataflow import Interpreter, UNKNOWN
+
+    def constant(expr, state):
+        if isinstance(expr, ast.Constant):
+            return True
+        if isinstance(expr, ast.Name):
+            return expr.id in state and state[expr.id].constant is not UNKNOWN
+        if isinstance(expr, (ast.Tuple, ast.List)):
+            return all(constant(e, state) for e in expr.elts)
+        return False
+
+    def assembled(expr, state):
+        if isinstance(expr, ast.JoinedStr):
+            return any(isinstance(v, ast.FormattedValue) and not constant(v.value, state)
+                       for v in expr.values)
+        if isinstance(expr, ast.BinOp) and isinstance(expr.op, (ast.Add, ast.Mod)):
+            operands = []
+            stack = [expr]
+            while stack:
+                sub = stack.pop()
+                if isinstance(sub, ast.BinOp) and isinstance(sub.op, (ast.Add, ast.Mod)):
+                    stack.extend((sub.left, sub.right))
+                else:
+                    operands.append(sub)
+            has_string = any(isinstance(e, ast.Constant) and isinstance(e.value, str)
+                             or isinstance(e, ast.Name) and e.id in state and isinstance(state[e.id].constant, str)
+                             for e in operands)
+            return has_string and not all(constant(e, state) for e in operands)
+        if isinstance(expr, ast.Call) and isinstance(expr.func, ast.Attribute) and expr.func.attr == "format":
+            return any(not constant(a, state) for a in expr.args) or any(not constant(k.value, state) for k in expr.keywords)
+        return False
+
+    analysis = Interpreter(tree, assembled, {}).run()
+
+    out = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        f = node.func
+        name = f.id if isinstance(f, ast.Name) else getattr(f, "attr", "")
+        if name not in ("execute", "executemany", "query", "raw"):
+            continue
+        if not node.args:
+            continue
+        args = analysis.arguments.get(id(node), [])
+        if args and args[0][1].tainted:
+            out.append((getattr(node, "lineno", 0), name))
+    return out
+
+
+
+
+# Values that are labels, not secrets: short public symbols like "SOL", "USD".
+_PUBLIC_LABEL = re.compile(r"^[A-Z0-9_\-]{1,10}$")
+
+
+def _ast_hardcoded_secrets(code: str, *, tree=None):
+    """Assignments of a literal to a credential-shaped name (SG-22).
+
+    The old regex scanned raw text, so `token = "SOL"` (a ticker) was a critical
+    finding while `password: str = "..."` (an annotated assignment) was missed
+    entirely.
+    """
+    try:
+        if tree is None:
+            tree = ast.parse(code)
+    except SyntaxError:
+        return None
+
+    names = re.compile(r"(password|passwd|secret|api_key|apikey|token|"
+                       r"private_key|access_key|auth_token)$", re.I)
+    out = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = getattr(node, "value", None)
+        if not (isinstance(value, ast.Constant) and isinstance(value.value, str)):
+            continue
+        text = value.value
+        if not text:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        for t in targets:
+            if isinstance(t, ast.Name) and names.search(t.id):
+                if t.id.lower() == "token" and re.fullmatch(r"[A-Z]{2,5}", text):
+                    continue   # ticker-shaped public label, not a password exemption
+                out.append((getattr(node, "lineno", 0), t.id))
+                break
+    return out
+
+
+def _ast_nonterminating_loops(code: str, *, tree=None):
+    """`while` loops with no exit path and no progress (SG-24).
+
+    The old check treated any `while x > 0:` without a later assignment as
+    infinite, so `while n > 0: break` was critical while a loop whose counter was
+    bumped *outside* the body was not reported at all.
+    """
+    try:
+        if tree is None:
+            tree = ast.parse(code)
+    except SyntaxError:
+        return None
+
+    out = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.While):
+            continue
+        if any(isinstance(n, ast.Call) for n in ast.walk(node.test)):
+            continue  # polling a predicate can observe progress outside this body
+        watched = {n.id for n in ast.walk(node.test) if isinstance(n, ast.Name)}
+        exits = False
+        mutates = False
+        pending = [(s, 0) for s in node.body]
+        while pending:
+            sub, loop_depth = pending.pop()
+            if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+                continue
+            if isinstance(sub, (ast.Return, ast.Raise)) or isinstance(sub, ast.Break) and loop_depth == 0:
+                exits = True
+            if isinstance(sub, (ast.AugAssign, ast.Assign, ast.AnnAssign)):
+                targets = sub.targets if isinstance(sub, ast.Assign) else [sub.target]
+                changed = {n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name)}
+                same = isinstance(getattr(sub, "value", None), ast.Name) and changed == {sub.value.id}
+                mutates |= bool(changed & watched) and not same
+            if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Attribute):
+                mutates |= isinstance(sub.func.value, ast.Name) and sub.func.value.id in watched
+            nested = loop_depth + isinstance(sub, (ast.For, ast.AsyncFor, ast.While))
+            pending.extend((child, nested) for child in ast.iter_child_nodes(sub))
+        if exits or mutates:
+            continue
+        out.append(getattr(node, "lineno", 0))
+    return out
+
+
+def _ast_incomplete_functions(code: str, *, tree=None):
+    """Function bodies that are a deliberate stub (SG-27).
+
+    The old check was `"pass" in code and "def " in code` over the whole file, so
+    `def f(): return "password"` was critical because the *word* appears
+    somewhere, while an ellipsis-only body was missed.
+    """
+    try:
+        if tree is None:
+            tree = ast.parse(code)
+    except SyntaxError:
+        return None
+
+    out = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if any((d.id if isinstance(d, ast.Name) else getattr(d, "attr", ""))
+               in ("abstractmethod", "overload") for d in node.decorator_list):
+            continue
+        body = [s for s in node.body
+                if not (isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant)
+                        and isinstance(s.value.value, str))]     # drop docstring
+        if not body:
+            out.append(getattr(node, "lineno", 0))
+            continue
+        if len(body) == 1:
+            only = body[0]
+            if isinstance(only, ast.Pass):
+                out.append(getattr(node, "lineno", 0))
+            elif isinstance(only, ast.Expr) and isinstance(only.value, ast.Constant) \
+                    and only.value.value is Ellipsis:
+                out.append(getattr(node, "lineno", 0))
+            elif isinstance(only, ast.Raise) and only.exc is not None:
+                exc = only.exc.func if isinstance(only.exc, ast.Call) else only.exc
+                ename = exc.id if isinstance(exc, ast.Name) else getattr(exc, "attr", "")
+                if ename == "NotImplementedError":
+                    out.append(getattr(node, "lineno", 0))
+    return out
+
+
+def _ast_missing_return(code: str, *, tree=None):
+    """Functions that promise a value but can fall off the end.
+
+    The old check was `if 'return' not in body` on a regex-extracted body, so any
+    procedure (`def save(): persist()`) was reported as a high-severity defect,
+    while a `return` inside a string literal suppressed a genuine omission (SG-25).
+    A missing return is only a defect when a value is actually expected: the
+    function is annotated to return something, or some path returns a value while
+    another falls through.
+    """
+    try:
+        if tree is None:
+            tree = ast.parse(code)
+    except SyntaxError:
+        return None
+
+    out = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        name = node.name
+        returns_value = False
+        bare_return = False
+        has_yield = False
+        # Only this function's own returns count: a nested `def` has its own
+        # return discipline, and counting its bare `return`s made every function
+        # with a helper closure look inconsistent.
+        stack = list(node.body)
+        while stack:
+            sub = stack.pop()
+            if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                continue
+            if isinstance(sub, (ast.Yield, ast.YieldFrom)):
+                has_yield = True
+            if isinstance(sub, ast.Return):
+                if sub.value is None:
+                    bare_return = True
+                else:
+                    returns_value = True
+            stack.extend(ast.iter_child_nodes(sub))
+        if has_yield:
+            continue
+        ann = node.returns
+        ann_name = ann.id if isinstance(ann, ast.Name) else getattr(ann, "attr", None)
+        if ann_name in ("NoReturn", "Never") or isinstance(ann, ast.Constant) and ann.value in ("NoReturn", "Never", "None"):
+            continue
+        if _body_terminates(node.body) and not bare_return:
+            continue
+        if not returns_value:
+            # Nothing returns a value: a procedure, unless it is annotated.
+            ann = node.returns
+            annotated = ann is not None and not (
+                isinstance(ann, ast.Constant) and ann.value is None)
+            if annotated:
+                out.setdefault(getattr(node, "lineno", 0),
+                               []).append((name, "annotated to return a value"))
+            continue
+        # Some paths return a value; does another fall through?
+        falls_through = False
+        body = node.body
+        if body:
+            last = body[-1]
+            if not isinstance(last, (ast.Return, ast.Raise, ast.If, ast.For,
+                                     ast.While, ast.Try, ast.With, ast.Match)):
+                falls_through = True
+            elif isinstance(last, (ast.If, ast.For, ast.While, ast.Try, ast.With, ast.Match)):
+                falls_through = not _body_terminates(body)
+        if falls_through or bare_return:
+            out.setdefault(getattr(node, "lineno", 0),
+                           []).append((name, "inconsistent return paths"))
+    return out
+
+
+def _body_terminates(body):
+    """Conservative structural proof of a return/raise on every route."""
+    for stmt in body:
+        if isinstance(stmt, (ast.Return, ast.Raise)):
+            return True
+        if isinstance(stmt, ast.If) and stmt.orelse:
+            if _body_terminates(stmt.body) and _body_terminates(stmt.orelse):
+                return True
+        if isinstance(stmt, (ast.With, ast.AsyncWith)) and _body_terminates(stmt.body):
+            return True
+        if isinstance(stmt, ast.Try):
+            if _body_terminates(stmt.finalbody):
+                return True
+            if (_body_terminates(stmt.body) and not stmt.orelse
+                    and all(_body_terminates(h.body) for h in stmt.handlers)):
+                return True
+    return False
+
+
 def analyze_patterns(code: str, language: str) -> List[Dict]:
     """Pattern-based detection for common bugs and security issues."""
-    _div_lines = _ast_division_lines(code)
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        tree = None
+
+    def check(helper):
+        return helper(code, tree=tree) if tree is not None else None
+
+    _div_lines = check(_ast_division_lines)
+    _eval_lines = check(_ast_unsafe_eval_lines)
+    _concat = check(_ast_concat_suspects)
+    _missing_return = check(_ast_missing_return)
+    _sql = check(_ast_sql_injection)
+    _loops = check(_ast_nonterminating_loops)
+    _secrets = check(_ast_hardcoded_secrets)
     issues = []
     lines = code.split("\n")
     full_code = code
 
     # Multi-line checks first (need full code context)
 
-    # SQL Injection — f-string or format in query + execute nearby
-    if re.search(r'f["\'].*SELECT.*FROM', full_code, re.IGNORECASE):
+    # SQL Injection — the query string itself must be assembled (SG-21).
+    if _sql is not None:
+        for line_num, cname in _sql:
+            issues.append({
+                "type": "security",
+                "severity": "critical",
+                "line": line_num,
+                "description": f"SQL injection risk — query passed to {cname}() is "
+                               "built by string interpolation",
+                "suggestion": "Use parameterized queries instead of string formatting",
+            })
+    elif re.search(r'f["\'].*SELECT.*FROM', full_code, re.IGNORECASE):
         line_num = next((i for i, l in enumerate(lines, 1) if 'SELECT' in l.upper()), 0)
         issues.append({
             "type": "security",
@@ -487,31 +942,30 @@ def analyze_patterns(code: str, language: str) -> List[Dict]:
             "description": "SQL injection vulnerability — user input interpolated into query via f-string",
             "suggestion": "Use parameterized queries instead of string formatting",
         })
-    elif re.search(r'\.format\(.*\).*SELECT', full_code, re.IGNORECASE | re.DOTALL):
-        issues.append({
-            "type": "security",
-            "severity": "critical",
-            "line": 0,
-            "description": "SQL injection vulnerability — .format() used in query string",
-            "suggestion": "Use parameterized queries instead of string formatting",
-        })
 
-    # Infinite loop detection — while loop without modification of loop variable
-    while_matches = list(re.finditer(r'while\s+(\w+)\s*([><=!]+)', full_code))
-    for match in while_matches:
-        var_name = match.group(1)
-        # Check if the variable is modified inside the loop body
-        loop_start = match.start()
-        # Simple check: is the variable assigned or modified after the while?
-        remaining = full_code[loop_start:]
-        if f"{var_name} =" not in remaining.split("\n", 1)[-1] and f"{var_name} -=" not in remaining and f"{var_name} +=" not in remaining:
-            line_num = full_code[:loop_start].count("\n") + 1
+    # Infinite loop — no exit path and no progress (SG-24).
+    if _loops is not None:
+        for line_num in _loops:
             issues.append({
                 "type": "bug",
+                "severity": "medium",
+                "line": line_num,
+                "description": "Potential infinite loop — the while body has no "
+                               "break, return or counter update",
+                "suggestion": "Add an exit condition or update the loop variable "
+                              "inside the body",
+            })
+
+    # Hardcoded credentials — AST-resolved so annotated assignments count and
+    # public labels like "SOL" do not (SG-22).
+    if _secrets is not None:
+        for line_num, name in _secrets:
+            issues.append({
+                "type": "security",
                 "severity": "critical",
                 "line": line_num,
-                "description": f"Potential infinite loop — '{var_name}' is not modified inside the while loop",
-                "suggestion": f"Add '{var_name} -= 1' or similar modification inside the loop body",
+                "description": f"Hardcoded secret/credential detected ('{name}')",
+                "suggestion": "Use environment variables or a secrets manager",
             })
 
     # Off-by-one in range -- flag only shapes that actually smell.
@@ -529,10 +983,7 @@ def analyze_patterns(code: str, language: str) -> List[Dict]:
     # parenthesis in range(len(x) + 1), so it silently missed exactly the case it was
     # written to catch. Structural question -> parser, not pattern.
     import ast as _ast2
-    try:
-        _tree = _ast2.parse(full_code)
-    except SyntaxError:
-        _tree = None
+    _tree = tree
     if _tree is not None:
         for node in _ast2.walk(_tree):
             if not (isinstance(node, _ast2.Call)
@@ -588,28 +1039,27 @@ def analyze_patterns(code: str, language: str) -> List[Dict]:
                     })
                     break
 
-    # Missing return in function that should return a value
-    func_defs = re.findall(r'def\s+(\w+)\([^)]*\):', full_code)
-    for func_name in func_defs:
-        # Extract function body (simple heuristic)
-        func_match = re.search(rf'def\s+{func_name}\([^)]*\):\s*\n((?:\s+.+\n?)+)', full_code)
-        if func_match:
-            body = func_match.group(1)
-            if 'return' not in body and 'yield' not in body and 'print' not in body:
-                line_num = next((i for i, l in enumerate(lines, 1) if f'def {func_name}' in l), 0)
-                issues.append({
-                    "type": "bug",
-                    "severity": "high",
-                    "line": line_num,
-                    "description": f"Function '{func_name}' has no return statement — implicitly returns None",
-                    "suggestion": "Add a return statement with the expected value",
-                })
+    # Missing return, only where a value is actually expected (SG-25).
+    if _missing_return is not None:
+        for line_num, hits in _missing_return.items():
+            func_name, reason = hits[0]
+            issues.append({
+                "type": "bug",
+                "severity": "high",
+                "line": line_num,
+                "description": f"Function '{func_name}' may return None "
+                               f"({reason})",
+                "suggestion": "Return a value on every path, or annotate -> None "
+                              "if this is a procedure",
+            })
 
     for i, line in enumerate(lines, 1):
         stripped = line.strip()
 
-        # SQL Injection (single-line patterns)
-        if re.search(r'(execute|query)\s*\(.*(%s|\.format|\+.*input|f["\'])', stripped):
+        # SQL Injection (single-line) — only when the source does not parse, so
+        # the AST check above is authoritative (SG-21).
+        if _sql is None and re.search(
+                r'(execute|query)\s*\(\s*(f["\']|[^"\']*\.format\()', stripped):
             if not any(iss["type"] == "security" for iss in issues):
                 issues.append({
                     "type": "security",
@@ -619,15 +1069,18 @@ def analyze_patterns(code: str, language: str) -> List[Dict]:
                     "suggestion": "Use parameterized queries instead of string formatting",
                 })
 
-        # Hardcoded secrets
-        if re.search(r'(password|secret|api_key|token)\s*=\s*["\'][^"\']+["\']', stripped, re.IGNORECASE):
-            issues.append({
-                "type": "security",
-                "severity": "critical",
-                "line": i,
-                "description": "Hardcoded secret/credential detected",
-                "suggestion": "Use environment variables or a secrets manager",
-            })
+        # Hardcoded secrets — resolved from the AST so annotated assignments are
+        # caught and public labels like "SOL" are not (SG-22).
+        if _secrets is None:
+            if re.search(r'(password|secret|api_key|token)\s*=\s*["\'][^"\']{8,}["\']',
+                         stripped, re.IGNORECASE):
+                issues.append({
+                    "type": "security",
+                    "severity": "critical",
+                    "line": i,
+                    "description": "Hardcoded secret/credential detected",
+                    "suggestion": "Use environment variables or a secrets manager",
+                })
 
         # Division without zero check.
         # Gated on the AST: a `/` inside a string literal is not a division. When the
@@ -645,23 +1098,34 @@ def analyze_patterns(code: str, language: str) -> List[Dict]:
                     "suggestion": "Add a check for zero before dividing",
                 })
 
-        # Type error — string concatenation with non-string variables
-        if re.search(r'["\'].*\+\s*\w+.*\+\s*["\']', stripped) or re.search(r'["\'].*\+\s*\w+\s*\+\s*["\']', stripped):
-            # Check if any variable in the concatenation is likely numeric (based on name)
-            numeric_vars = re.findall(r'\+\s*(\w+)', stripped)
-            for var in numeric_vars:
-                if any(hint in var.lower() for hint in ['age', 'count', 'num', 'id', 'year', 'price', 'amount', 'total', 'size', 'length', 'index', 'score']):
-                    issues.append({
-                        "type": "type_error",
-                        "severity": "high",
-                        "line": i,
-                        "description": f"Potential TypeError — concatenating string with likely numeric variable '{var}'. Use str({var}) for safe concatenation",
-                        "suggestion": f"Wrap '{var}' with str() before concatenation",
-                    })
-                    break
+        # Type error — string concatenation with a likely-numeric variable.
+        # Resolved from the AST (RV-07); the regex fallback only runs on source
+        # that does not parse, so there is no length cutoff and no lost coverage.
+        if _concat is not None:
+            _suspects = _concat.get(i, [])
+        else:
+            _suspects = []
+            if len(stripped) <= 2000 and re.search(
+                    r'["\'][^"\']*\+\s*\w+[^"\']*\+\s*["\']', stripped):
+                _suspects = [v for v in re.findall(r'\+\s*(\w+)', stripped)
+                             if any(h in v.lower() for h in NUMERIC_NAME_HINTS)][:1]
+        for var in _suspects:
+            issues.append({
+                "type": "type_error",
+                "severity": "high",
+                "line": i,
+                "description": f"Potential TypeError — concatenating string with likely numeric variable '{var}'. Use str({var}) for safe concatenation",
+                "suggestion": f"Wrap '{var}' with str() before concatenation",
+            })
+            break
 
-        # eval() usage
-        if "eval(" in stripped:
+        # eval()/exec() usage -- resolved through the AST so literal_eval is not
+        # mistaken for eval (SG-23).
+        if _eval_lines is None:
+            _is_eval = re.search(r'\b(?:eval|exec)\s*\(', stripped) is not None
+        else:
+            _is_eval = i in _eval_lines
+        if _is_eval:
             issues.append({
                 "type": "security",
                 "severity": "critical",
@@ -692,6 +1156,7 @@ def analyze_intent(code: str, intent: str, language: str) -> List[Dict]:
     For the hackathon demo, this uses heuristic matching.
     In production, this would use an LLM for semantic analysis.
     """
+    _incomplete = _ast_incomplete_functions(code)
     issues = []
     intent_lower = intent.lower()
     code_lower = code.lower()
@@ -845,16 +1310,21 @@ def analyze_intent(code: str, intent: str, language: str) -> List[Dict]:
             "suggestion": "Use os.environ or a config/secrets manager instead of hardcoded values",
         })
 
-    # Check for empty function bodies
-    if "pass" in code and "def " in code:
-        issues.append({
-            "type": "incomplete",
-            "severity": "critical",
-            "line": 0,
-            "description": "Function body contains only 'pass' — not implemented",
-            "suggestion": "Implement the function logic as described in the intent",
-        })
+    # Incomplete function bodies — AST, so a stray "pass" elsewhere in the file
+    # no longer condemns a complete function (SG-27).
+    if _incomplete is not None:
+        for line_num in _incomplete:
+            issues.append({
+                "type": "incomplete",
+                "severity": "medium",
+                "line": line_num,
+                "description": "Function body is a stub (pass, ... or NotImplementedError)",
+                "suggestion": "Implement the function or raise NotImplementedError explicitly",
+            })
 
+    for issue in issues:
+        if issue.get("type") == "intent_mismatch":
+            issue["severity"] = "medium"
     return issues
 
 

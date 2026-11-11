@@ -8,14 +8,16 @@ so the leaderboard reflects real competition.
 
 Strategies:
     - ast-heavy:         Full AST + patterns, skip LLM. Higher confidence on structural bugs.
-    - security-focused:  All patterns with boosted severity for security. Extra security regexes.
-    - intent-focused:    Lighter AST but enhanced intent heuristics. Uses LLM if available.
+    - security-focused:  Standard checks plus security API checks.
+    - intent-focused:    Enhanced intent heuristics; LLM only with explicit opt-in.
     - default:           Runs everything as-is (backward compatible).
 """
 
+import ast
 import re
 import logging
 from typing import Dict, List
+from .limits import analysis_entry
 
 from .solana import scan_solana
 from .analyzer import (
@@ -31,7 +33,7 @@ from .analyzer import (
 logger = logging.getLogger(__name__)
 
 
-# ─── Extra security patterns (used by security-focused strategy) ─────────────
+# ─── Security diagnostic catalogue (matching is AST-based) ──────────────────
 
 _EXTRA_SECURITY_PATTERNS = [
     # Pickle deserialization
@@ -40,8 +42,9 @@ _EXTRA_SECURITY_PATTERNS = [
     (r'subprocess\.\w+\(.*shell\s*=\s*True', "subprocess with shell=True allows shell injection", "Use shell=False and pass args as a list"),
     # os.system usage
     (r'os\.system\(', "os.system() is vulnerable to command injection", "Use subprocess.run() with shell=False instead"),
-    # yaml.load without SafeLoader
-    (r'yaml\.load\([^)]*\)', "yaml.load() without SafeLoader can execute arbitrary code", "Use yaml.safe_load() instead"),
+    # yaml.load without a SAFE loader. SafeLoader/CSafeLoader are safe; FullLoader
+    # and UnsafeLoader are not, and `yaml.safe_load` is the correct call.
+    (r'yaml\.load\((?![^)]*SafeLoader)[^)]*\)', "yaml.load() without SafeLoader can execute arbitrary code", "Use yaml.safe_load() instead"),
     # Binding to 0.0.0.0
     (r'0\.0\.0\.0', "Service bound to all interfaces (0.0.0.0) — may expose to public network", "Bind to 127.0.0.1 for local-only access"),
     # JWT without verification
@@ -55,6 +58,72 @@ _EXTRA_SECURITY_PATTERNS = [
     # Temporary file with predictable name
     (r'/tmp/\w+', "Predictable temporary file path — potential symlink attack", "Use tempfile.mkstemp() for secure temp files"),
 ]
+
+
+def _extra_security_ast(code):
+    from .solana import _binding_events, _scope_map, _origin_at, _dotted
+
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return []
+    bindings = _binding_events(tree)
+    scopes = _scope_map(tree)
+    out = []
+
+    def origin(expr, line, scope):
+        name = _dotted(expr)
+        head, dot, tail = name.partition(".")
+        resolved = _origin_at(bindings, head, line, scope)
+        return resolved + dot + tail
+
+    def emit(index, node, severity="high"):
+        _, description, suggestion = _EXTRA_SECURITY_PATTERNS[index]
+        out.append({"type": "security", "severity": severity,
+                    "line": node.lineno, "description": description,
+                    "suggestion": suggestion})
+
+    for call in ast.walk(tree):
+        if not isinstance(call, ast.Call):
+            continue
+        line, scope = (call.lineno, call.col_offset), scopes.get(id(call))
+        name = origin(call.func, line, scope)
+        kw = {k.arg: k.value for k in call.keywords if k.arg is not None}
+
+        def literal(key, value):
+            return key in kw and isinstance(kw[key], ast.Constant) and kw[key].value == value
+
+        if name in ("pickle.load", "pickle.loads", "_pickle.load", "_pickle.loads"):
+            emit(0, call)
+        if name.startswith("subprocess.") and name.rsplit(".", 1)[-1] in {
+                "run", "call", "check_call", "check_output", "Popen", "getoutput", "getstatusoutput"}:
+            if literal("shell", True) or name.endswith((".getoutput", ".getstatusoutput")):
+                emit(1, call)
+        if name == "os.system":
+            emit(2, call)
+        if name in ("yaml.load", "yaml.load_all", "yaml.unsafe_load", "yaml.unsafe_load_all"):
+            loader = kw.get("Loader") or (call.args[1] if len(call.args) > 1 else None)
+            if loader is None or origin(loader, line, scope) not in ("yaml.SafeLoader", "yaml.CSafeLoader"):
+                emit(3, call)
+        if literal("host", "0.0.0.0") or (name.endswith(".bind") and call.args
+                and isinstance(call.args[0], (ast.Tuple, ast.List)) and call.args[0].elts
+                and isinstance(call.args[0].elts[0], ast.Constant) and call.args[0].elts[0].value == "0.0.0.0"):
+            emit(4, call)
+        if name == "jwt.decode":
+            disabled = literal("verify", False)
+            options = kw.get("options")
+            if isinstance(options, ast.Dict):
+                disabled |= any(isinstance(k, ast.Constant) and k.value == "verify_signature"
+                                and isinstance(v, ast.Constant) and v.value is False
+                                for k, v in zip(options.keys, options.values))
+            if disabled:
+                emit(5, call)
+        if name in ("os.chmod", "Path.chmod") or name.endswith(".chmod"):
+            if any(isinstance(a, ast.Constant) and a.value == 0o777 for a in call.args):
+                emit(7, call)
+        if name in ("hashlib.md5", "hashlib.sha1", "md5", "sha1") and not literal("usedforsecurity", False):
+            emit(8, call, "medium")
+    return out
 
 
 # ─── Enhanced intent keywords (used by intent-focused strategy) ───────────────
@@ -79,7 +148,8 @@ _EXTRA_INTENT_CHECKS = {
 }
 
 
-def run_strategy(strategy: str, code: str, intent: str, language: str = "python") -> dict:
+@analysis_entry
+def run_strategy(strategy: str, code: str, intent: str, language: str = "python", use_llm: bool = False) -> dict:
     """
     Run analysis using the specified strategy.
 
@@ -93,16 +163,55 @@ def run_strategy(strategy: str, code: str, intent: str, language: str = "python"
         Same dict format as analyze_code(): {issues, confidence, passed, suggestions}
     """
     if strategy == "default" or strategy is None:
-        return analyze_code(code=code, intent=intent, language=language, use_llm=False)
+        return analyze_code(code=code, intent=intent, language=language, use_llm=use_llm)
     elif strategy == "ast-heavy":
-        return _strategy_ast_heavy(code, intent, language)
+        result = _strategy_ast_heavy(code, intent, language)
     elif strategy == "security-focused":
-        return _strategy_security_focused(code, intent, language)
+        result = _strategy_security_focused(code, intent, language)
     elif strategy == "intent-focused":
-        return _strategy_intent_focused(code, intent, language)
+        return _strategy_intent_focused(code, intent, language, use_llm=use_llm)
     else:
         logger.warning(f"Unknown strategy '{strategy}', falling back to default")
         return analyze_code(code=code, intent=intent, language=language, use_llm=False)
+    if use_llm:
+        extra = _llm_analyze_intent(code, intent, language)
+        if extra is not None:
+            result["issues"].extend(extra)
+            result["passed"] = not any(i.get("severity") in ("high", "critical") for i in result["issues"])
+    return result
+
+
+
+
+def _finalize(all_issues: list, confidence: float, code: str) -> dict:
+    """Append the Solana domain pass and derive acceptance from the full result.
+
+    A rule that raised is recorded as an explicit critical issue: analysis that
+    did not complete is not a clean result. Reporting "clear" for a rule that
+    never ran is how a 2.4 KB input produced exit 0 with passed=true on a real
+    critical flow (F4-01, SG-17).
+    """
+    _sol = scan_solana(code)
+    if _sol.get("issues"):
+        all_issues.extend(_sol["issues"])
+    scan_errors = list(_sol.get("errors") or [])
+    for err in scan_errors:
+        all_issues.append({
+            "type": "analysis_error",
+            "severity": "critical",
+            "line": 0,
+            "description": f"Required analysis did not complete: {err}. "
+                           "This result is not a clean verdict.",
+            "suggestion": "Treat as a scan failure and fix the rule or the input.",
+        })
+    worst = [i for i in all_issues if i.get("severity") in ("critical", "high")]
+    return {
+        "issues": all_issues,
+        "confidence": min(1.0, confidence),
+        "passed": len(worst) == 0,
+        "suggestions": generate_suggestions(all_issues, code),
+        "scan_errors": scan_errors,
+    }
 
 
 # ─── Strategy A: AST-Heavy ────────────────────────────────────────────────────
@@ -149,15 +258,7 @@ def _strategy_ast_heavy(code: str, intent: str, language: str) -> dict:
         confidence += 0.05
 
     confidence = min(1.0, confidence)
-    passed = len(critical_or_high) == 0
-    suggestions = generate_suggestions(all_issues, code)
-
-    return {
-        "issues": all_issues,
-        "confidence": confidence,
-        "passed": passed,
-        "suggestions": suggestions,
-    }
+    return _finalize(all_issues, confidence, code)
 
 
 # ─── Strategy B: Security-Focused ─────────────────────────────────────────────
@@ -181,29 +282,13 @@ def _strategy_security_focused(code: str, intent: str, language: str) -> dict:
     intent_issues = analyze_intent(code, intent, language)
     all_issues.extend(intent_issues)
 
-    # Extra security patterns (the differentiator)
-    lines = code.split("\n")
-    for regex, description, suggestion in _EXTRA_SECURITY_PATTERNS:
-        for i, line in enumerate(lines, 1):
-            if re.search(regex, line):
-                # Avoid duplicate security issues
-                if not any(
-                    iss.get("description", "").lower() == description.lower()
-                    for iss in all_issues
-                ):
-                    all_issues.append({
-                        "type": "security",
-                        "severity": "high",
-                        "line": i,
-                        "description": description,
-                        "suggestion": suggestion,
-                    })
-                break  # One match per pattern is enough
+    # Call boundaries and import aliases come from the AST. Token masking is
+    # insufficient on Python versions that tokenize an entire f-string as one
+    # string, and a DOTALL regex can borrow shell=True from a different call.
+    all_issues.extend(_extra_security_ast(code))
 
-    # Boost severity: upgrade medium security issues to high
-    for issue in all_issues:
-        if issue.get("type") == "security" and issue.get("severity") == "medium":
-            issue["severity"] = "high"
+    # Keep advisory/heuristic severities; selecting a strategy is not evidence
+    # that an uncertain finding is a high-severity security defect.
 
     # Security-focused confidence: higher when security issues found
     security_count = len([i for i in all_issues if i.get("type") == "security"])
@@ -214,28 +299,12 @@ def _strategy_security_focused(code: str, intent: str, language: str) -> dict:
         confidence += min(0.1, len(all_issues) * 0.02)
 
     confidence = min(1.0, confidence)
-    critical_or_high = [i for i in all_issues if i.get("severity") in ("critical", "high")]
-    passed = len(critical_or_high) == 0
-    suggestions = generate_suggestions(all_issues, code)
-
-    # Solana client/agent patterns (PS-SOL-1..3). Reuses the same result shape so
-    # the CLI and exit-code contract are unchanged. On non-Solana input every
-    # pattern returns 'n/a' and this is a no-op.
-    _sol = scan_solana(code)
-    if _sol.get("issues"):
-        all_issues.extend(_sol["issues"])
-
-    return {
-        "issues": all_issues,
-        "confidence": confidence,
-        "passed": passed,
-        "suggestions": suggestions,
-    }
+    return _finalize(all_issues, confidence, code)
 
 
 # ─── Strategy C: Intent-Focused ───────────────────────────────────────────────
 
-def _strategy_intent_focused(code: str, intent: str, language: str) -> dict:
+def _strategy_intent_focused(code: str, intent: str, language: str, use_llm: bool = False) -> dict:
     """
     Focuses on intent matching — does the code actually do what it claims?
     Uses LLM if available, otherwise runs enhanced heuristic intent checks.
@@ -255,7 +324,7 @@ def _strategy_intent_focused(code: str, intent: str, language: str) -> dict:
 
     # Try LLM-based intent analysis first
     llm_used = False
-    intent_issues = _llm_analyze_intent(code, intent, language)
+    intent_issues = _llm_analyze_intent(code, intent, language) if use_llm else None
     if intent_issues is not None:
         llm_used = True
         logger.info(f"LLM intent analysis returned {len(intent_issues)} issues")
@@ -278,16 +347,7 @@ def _strategy_intent_focused(code: str, intent: str, language: str) -> dict:
         confidence += 0.05
 
     confidence = min(1.0, confidence)
-    critical_or_high = [i for i in all_issues if i.get("severity") in ("critical", "high")]
-    passed = len(critical_or_high) == 0
-    suggestions = generate_suggestions(all_issues, code)
-
-    return {
-        "issues": all_issues,
-        "confidence": confidence,
-        "passed": passed,
-        "suggestions": suggestions,
-    }
+    return _finalize(all_issues, confidence, code)
 
 
 def _enhanced_intent_check(code: str, intent: str) -> List[Dict]:
@@ -303,7 +363,7 @@ def _enhanced_intent_check(code: str, intent: str) -> List[Dict]:
                 if mismatch_fn(code):
                     issues.append({
                         "type": "intent_mismatch",
-                        "severity": "high",
+                        "severity": "medium",
                         "line": 0,
                         "description": f"Intent mentions '{keyword}' but code may not implement it correctly",
                         "suggestion": f"Review the code to ensure it correctly handles '{keyword}' as described in the intent",
@@ -331,7 +391,7 @@ def _enhanced_intent_check(code: str, intent: str) -> List[Dict]:
             if a in intent_lower and b in fname_lower:
                 issues.append({
                     "type": "intent_mismatch",
-                    "severity": "critical",
+                    "severity": "medium",
                     "line": 0,
                     "description": f"Intent says '{a}' but function is named '{fname}' (suggests '{b}')",
                     "suggestion": f"The function name suggests it does '{b}' but intent requires '{a}'",
@@ -339,7 +399,7 @@ def _enhanced_intent_check(code: str, intent: str) -> List[Dict]:
             elif b in intent_lower and a in fname_lower:
                 issues.append({
                     "type": "intent_mismatch",
-                    "severity": "critical",
+                    "severity": "medium",
                     "line": 0,
                     "description": f"Intent says '{b}' but function is named '{fname}' (suggests '{a}')",
                     "suggestion": f"The function name suggests it does '{a}' but intent requires '{b}'",

@@ -1,0 +1,6 @@
+include LICENSE README.md pyproject.toml
+recursive-include sak_guard *.py py.typed
+recursive-include tests *.py
+recursive-include docs *.md
+global-exclude *.py[cod]
+global-exclude __pycache__

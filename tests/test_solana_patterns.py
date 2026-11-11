@@ -25,6 +25,12 @@ MATRIX = {
     "clean_solana_rpc.py":       {"PS-SOL-2": "clear", "PS-SOL-3": "clear"},
     "vulnerable_solana_llm.py":  {"PS-SOL-3": "found"},
     "clean_solana_llm.py":       {"PS-SOL-3": "clear", "PS-SOL-2": "clear"},
+    # SG-10: signer / message integrity.
+    "vulnerable_solana_signing.py": {"PS-SOL-4": "found"},
+    "clean_solana_signing.py":      {"PS-SOL-4": "clear"},
+    # SG-11: amount bounds and slippage.
+    "vulnerable_solana_amounts.py": {"PS-SOL-5": "found"},
+    "clean_solana_amounts.py":      {"PS-SOL-5": "clear"},
 }
 
 

@@ -7,11 +7,11 @@ no server, no account.
 
     sak-guard path/to/file.py               # audit a file
     sak-guard src/ --fail-on low            # a tree
-    git diff -U0 | sak-guard -              # stdin
+    cat transaction_client.py | sak-guard -  # Python source on stdin
     sak-guard f.py --json                   # machine-readable
 
 Exit status: 0 clean (or below --fail-on), 1 findings at/above --fail-on,
-2 usage/IO error. Suitable as a pre-commit hook and in CI.
+2 usage/IO/incomplete-analysis error. Suitable as a pre-commit hook and in CI.
 
 The optional LLM intent pass is off unless --use-llm is given, and it reads its
 provider settings from the environment (LLM_PROVIDER / LLM_MODEL / LLM_API_KEY /
@@ -25,18 +25,35 @@ severity; this only filters and reports.
 """
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
 
-from .analyzer import analyze_code
-from .strategies import run_strategy
+from .limits import MAX_SOURCE_BYTES, failure
 
 # The base analyze_code() bank covers secrets and eval() but NOT shell injection;
 # that lives in the security-focused strategy's extra patterns (subprocess
 # shell=True, os.system). A security auditor should default to the bank that
 # actually looks for command injection.
 STRATEGIES = ("default", "security-focused", "ast-heavy", "intent-focused")
+
+# Analysis is bounded on purpose: a commit hook must not run indefinitely on a
+# generated or vendored file, and an unbounded read is also an unbounded memory
+# commitment. 4 MiB is far beyond any hand-written module.
+ANALYSIS_TIMEOUT_SECONDS = 15
+
+
+class SourceTooLarge(Exception):
+    """Raised when an input exceeds MAX_SOURCE_BYTES."""
+
+    def __init__(self, label: str, size: int):
+        super().__init__(
+            f"{label}: source is {size} bytes, over the {MAX_SOURCE_BYTES}-byte "
+            "analysis limit"
+        )
+        self.label = label
+        self.size = size
 
 PROG = "sak-guard"
 
@@ -73,10 +90,27 @@ def iter_targets(paths):
 
 def audit(code, intent, language, use_llm, strategy="security-focused"):
     """Call the engine. Returns (issues, confidence, passed)."""
-    if strategy == "default":
-        r = analyze_code(code=code, intent=intent, language=language, use_llm=use_llm)
-    else:
-        r = run_strategy(strategy, code, intent, language)
+    request = {"strategy": strategy, "code": code, "intent": intent,
+               "language": language, "use_llm": use_llm}
+    try:
+        # -I prevents a scanned checkout's sak_guard.py, sitecustomize.py or
+        # PYTHONPATH from replacing our worker. Pin the parent package location.
+        bootstrap = "import runpy,sys; sys.path.insert(0,sys.argv[1]); runpy.run_module('sak_guard.worker',run_name='__main__')"
+        proc = subprocess.run([sys.executable, "-I", "-B", "-c", bootstrap,
+                               str(Path(__file__).resolve().parent.parent)],
+                              input=json.dumps(request), text=True,
+                              encoding="utf-8", capture_output=True,
+                              timeout=60 if use_llm else ANALYSIS_TIMEOUT_SECONDS)
+        if proc.returncode:
+            r = failure(f"analysis worker exited {proc.returncode}")
+        else:
+            r = json.loads(proc.stdout)
+            if not isinstance(r, dict) or not isinstance(r.get("issues"), list):
+                r = failure("analysis worker returned an invalid report schema")
+    except subprocess.TimeoutExpired:
+        r = failure("analysis worker exceeded its time budget")
+    except (OSError, ValueError):
+        r = failure("analysis worker failed to return a valid report")
     return r.get("issues") or [], r.get("confidence"), r.get("passed")
 
 
@@ -102,7 +136,8 @@ def main(argv=None):
     ap.add_argument("paths", nargs="*", help="files or dirs; '-' reads stdin")
     ap.add_argument("--intent", default="",
                     help="natural-language description the code should satisfy")
-    ap.add_argument("--language", default="python")
+    ap.add_argument("--language", default="python", choices=["python"],
+                    help="source language (only python is analysed)")
     ap.add_argument("--strategy", default="security-focused", choices=STRATEGIES,
                     help="analysis strategy (default: security-focused)")
     ap.add_argument("--use-llm", action="store_true",
@@ -121,6 +156,11 @@ def main(argv=None):
 
     def run(label, code):
         nonlocal worst, total
+        # Bound the work. Analysis is linear now, but an unbounded input is still
+        # an unbounded commit hook, and a caller should be told rather than wait
+        # (SG-19).
+        if len(code) > MAX_SOURCE_BYTES:
+            raise SourceTooLarge(label, len(code))
         issues, conf, passed = audit(code, a.intent, a.language, a.use_llm, a.strategy)
         total += len(issues)
         for i in issues:
@@ -128,8 +168,24 @@ def main(argv=None):
         reports.append({"target": label, "issues": issues,
                         "confidence": conf, "passed": passed})
 
+    scanned = 0
     if "-" in a.paths:
-        run("<stdin>", sys.stdin.read())
+        try:
+            stream = getattr(sys.stdin, "buffer", None)
+            if stream is not None:
+                raw = stream.read(MAX_SOURCE_BYTES + 1)
+                if len(raw) > MAX_SOURCE_BYTES:
+                    raise SourceTooLarge("<stdin>", len(raw))
+                code = raw.decode("utf-8")
+            else:
+                code = sys.stdin.read(MAX_SOURCE_BYTES + 1)
+                if len(code.encode("utf-8")) > MAX_SOURCE_BYTES:
+                    raise SourceTooLarge("<stdin>", len(code.encode("utf-8")))
+            run("<stdin>", code)
+            scanned += 1
+        except (SourceTooLarge, OSError, UnicodeError) as e:
+            print(f"{PROG}: {e}", file=sys.stderr)
+            return 2
         a.paths = [p for p in a.paths if p != "-"]
 
     try:
@@ -139,13 +195,26 @@ def main(argv=None):
         return 2
 
     for f in targets:
-        if a.language == "python" and f.suffix not in PY_EXT:
-            continue
+        # An explicitly named file is scanned whatever its suffix; only
+        # directory discovery filters by extension. Silently skipping a file the
+        # caller asked for reported "clean" for code that was never read (SG-18).
         try:
-            run(str(f), f.read_text(encoding="utf-8", errors="replace"))
-        except OSError as e:
+            with f.open("rb") as source:
+                raw = source.read(MAX_SOURCE_BYTES + 1)
+            if len(raw) > MAX_SOURCE_BYTES:
+                raise SourceTooLarge(str(f), len(raw))
+            run(str(f), raw.decode("utf-8"))
+            scanned += 1
+        except SourceTooLarge as e:
+            print(f"{PROG}: {e}", file=sys.stderr)
+            return 2
+        except (OSError, UnicodeError) as e:
             print(f"{PROG}: cannot read {f}: {e}", file=sys.stderr)
             return 2
+
+    if scanned == 0:
+        print(f"{PROG}: no analysable targets were found", file=sys.stderr)
+        return 2
 
     if a.json:
         print(json.dumps({"reports": reports, "total_issues": total,
@@ -167,6 +236,8 @@ def main(argv=None):
             print(f"\n{total} issue(s) across {len(reports)} target(s); "
                   f"fail-on={a.fail_on}")
 
+    if any(i.get("type") == "analysis_error" for r in reports for i in r["issues"]):
+        return 2
     return 1 if worst <= threshold else 0
 
 

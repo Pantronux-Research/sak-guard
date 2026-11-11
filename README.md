@@ -9,9 +9,9 @@
 **Static pre-commit security guardrail for Solana agent code.**
 The static complement to a runtime transaction firewall.
 
-> **Status: v0.1.0-alpha.** The engine is real and tested; the Solana-specific pattern
-> banks are in progress. Read [Detection envelope](#detection-envelope) before trusting
-> a green check.
+> **Status: 0.2.0a1 release candidate.** Five Solana rule families are implemented.
+> This is an alpha heuristic guardrail. Read the [detection envelope](docs/DETECTION_ENVELOPE.md)
+> before using a passing result as a release decision.
 
 ---
 
@@ -40,7 +40,8 @@ The two are **complements, not competitors**. Use both.
 ## Install
 
 ```bash
-pip install sak-guard
+# Install this unpublished candidate from the reviewed checkout:
+python -m pip install .
 ```
 
 Requires **Python >= 3.10** (see [why the floor is 3.10 rather than 3.9](https://github.com/Pantronux-Research/sak-guard/blob/main/pyproject.toml)).
@@ -52,7 +53,7 @@ touch your environment.
 
 ```bash
 sak-guard FILE|DIR            # audit a file or a tree
-sak-guard -                   # read stdin (pipe a diff into it)
+sak-guard -                   # Python source on stdin (not a git diff)
 sak-guard F --json            # machine-readable
 sak-guard F --fail-on X       # critical | high | medium | low | any | never
 sak-guard F --strategy S      # security-focused (default) | default | ast-heavy | intent-focused
@@ -62,8 +63,12 @@ sak-guard F --language python # source language (default: python)
 sak-guard F --quiet           # only print failing targets
 ```
 
-Exit codes: **0** clean or below threshold · **1** findings at/above threshold · **2** usage
-or IO error.
+Exit codes: **0** clean or below threshold · **1** findings at/above threshold · **2** usage,
+IO, parse or incomplete-analysis error. Scan errors remain exit 2 with `--fail-on never`.
+That option suppresses the failure status for completed findings only.
+
+`reports[].passed` means there are no High/Critical findings; it is independent of
+the selected CLI threshold. An incomplete report always has `passed: false`.
 
 ```console
 $ sak-guard tests/fixtures/vulnerable_api.py
@@ -96,28 +101,45 @@ Verify this yourself: run the same fixture with `--strategy default` and count.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/Pantronux-Research/sak-guard
-    rev: v0.1.0-alpha
+    rev: v0.2.0-alpha.1 # use the reviewed release tag once it exists
     hooks:
       - id: sak-guard
         args: ["--fail-on", "high"]
 ```
 
-## GitHub Action
+Each pre-commit file scan uses its own isolated process. Budget roughly 0.1
+seconds of process startup per small file on the review machine; 100 files can
+add about 10 seconds before substantial analysis. Measure this on your runner.
+For larger projects, scope the consumer hook to all key-handling and
+transaction-building paths, for example:
 
 ```yaml
-- uses: Pantronux-Research/sak-guard@v0.1.0-alpha
-  with:
-    path: .
-    fail-on: high
+      - id: sak-guard
+        files: ^(src/transaction_client/|src/agents/|tests/solana/)
+        require_serial: true
+        args: ["--fail-on", "high"]
+```
+
+Replace those example paths with your own complete set. Files outside the filter
+receive no checks. `require_serial` avoids competing hook processes on a loaded
+runner; it does not reuse workers. The 15-second deadline is a per-file analysis
+budget, not a promise that every valid generated module fits it. A timeout exits
+2 and requires investigation; it never becomes a passing verdict.
+
+## GitHub Actions
+
+```yaml
+- run: python -m pip install .
+- run: sak-guard src/ --fail-on high
 ```
 
 ## Three engines
 
 1. **AST analysis** — structural inspection: where keypairs are sourced, whether transaction
    construction is validated, whether signing is gated.
-2. **Regex security pattern banks** — the defect class a runtime firewall never sees because
-   it lives in source: hardcoded secrets, `eval`/`exec` on agent-supplied input,
-   `subprocess(..., shell=True)`, unchecked deserialisation.
+2. **Security pattern banks** — AST checks for hardcoded secrets, `eval`/`exec`,
+   `subprocess(..., shell=True)` and unsafe deserialization. Text heuristics supply
+   additional advisory diagnostics.
 3. **Intent-mismatch verification** *(in progress)* — declare what a tool is *supposed* to
    do; fail the build when the implementation diverges. No existing Solana safety tool does
    this statically.
@@ -137,15 +159,22 @@ detection gaps and false-positive rate rather than hide them, because a safety t
 overstates its coverage **is itself a risk**. Current measured rates are in
 [`VERIFICATION.md`](VERIFICATION.md).
 
+The [current rule contract](docs/DETECTION_ENVELOPE.md) describes the signing and amount
+proxies, conservative false positives, resource limits and unsupported flows. Historical
+verification reports describe their own snapshots, not this release candidate.
+
+Each CLI file scan has a 15-second worker deadline (60 seconds with explicit LLM use),
+a 4 MiB source limit and a 200,000-node AST limit. Analysis never imports or executes
+submitted code. Only `--use-llm` permits sending source to a configured provider.
+
 ## Roadmap
 
 - [x] Decoupled CLI, stdlib-only, no server
 - [x] AST + regex engines with verified pass/fail behaviour
-- [ ] Solana-specific pattern banks (keypair/seed handling, `solders`/`solana-py` misuse,
-      unchecked transaction construction, secrets reaching agent tool args)
+- [x] Initial Solana banks: key handling, RPC, model provenance, signing and amount bounds
 - [ ] GitHub Action with inline PR annotations
 - [ ] Intent-mismatch verification, published fixtures
-- [ ] Published verification report incl. detection gaps
+- [x] Documented detection envelope and regression fixtures
 
 ## License
 

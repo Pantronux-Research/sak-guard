@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
 permissions:
   contents: read
 jobs:
@@ -11,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -23,8 +24,23 @@ jobs:
         run: python -m pytest -v tests/
       - name: Dogfood -- the tool must flag its own known-vulnerable fixture
         run: |
-          sak-guard tests/fixtures/vulnerable_api.py --fail-on high \
-            && { echo "::error::sak-guard failed to flag a known-vulnerable fixture"; exit 1; } \
-            || echo "correctly flagged the vulnerable fixture (non-zero exit expected)"
+          set +e
+          sak-guard tests/fixtures/vulnerable_api.py --fail-on high
+          status=$?
+          set -e
+          test "$status" -eq 1
       - name: Dogfood -- clean fixture must pass
         run: sak-guard tests/fixtures/clean_api.py --fail-on high
+      - name: Build and test the installed wheel outside the checkout
+        run: |
+          python -m build
+          python -m pip install --force-reinstall --no-deps dist/*.whl
+          cd "$(mktemp -d)"
+          python -I -c 'import sak_guard, sak_guard.dataflow, sak_guard.worker; print(sak_guard.__file__)'
+          set +e
+          printf 'x=llm.complete(q)\nPubkey(x)\n' | python -I -m sak_guard.cli - --json > unsafe.json
+          status=$?
+          set -e
+          test "$status" -eq 1
+          python -c 'import json; r=json.load(open("unsafe.json"))["reports"][0]; assert r["passed"] is False; assert any(i.get("pattern")=="PS-SOL-3" for i in r["issues"])'
+          printf 'x=1\n' | python -I -m sak_guard.cli - --json

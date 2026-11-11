@@ -1,4 +1,34 @@
-# sak-guard — Research Handoff and State Summary
+# Current remediation state — 2026-11-11
+
+The working tree contains the author-approved remediation handoff. Nothing has
+been committed, pushed or installed. The research snapshot below is historical.
+
+- Local Python 3.14.4: **498 tests passed** in the checkout after the post-handoff
+  review. The earlier 379-test artifact is superseded. Current artifact verification
+  results are recorded in the external report below.
+- The global `swap`/`route` false positives are fixed with resolved SDK origins
+  and exact operation names. Generic swap/router fixtures and stdlib asyncio are
+  negative controls. Follow-up fixes cover key import rebinding, expression side
+  effects, dictionary keys, lazy captures and exact-message review facts.
+- Pattern analysis shares one parsed AST across its structural checks (previously
+  eight parses). Per-file process overhead and timeout limitations are documented;
+  large-module decomposition remains maintenance work before further features.
+- Current rule limits and alpha coverage are in
+  [docs/DETECTION_ENVELOPE.md](docs/DETECTION_ENVELOPE.md). SG-10/SG-11 have partial
+  policy proxies, not complete signer/account/economic authorization coverage.
+- Public publication remains pending the exact commit's Python 3.10–3.14 matrix
+  and PyPI Trusted Publisher verification. Publish now depends on that matrix.
+- `/home/kuro/.local/bin/sak-guard` remains a stale installation and still misses
+  the model-to-Pubkey reproduction. Use `python3 -m sak_guard.cli` from this
+  checkout for review; replace the installed copy before relying on it.
+- The full report is outside the project as requested:
+  `/home/kuro/recon/sak-guard-audit/POST_HANDOFF_REVIEW.md`.
+- Build/evidence directory:
+  `/home/kuro/recon/sak-guard-audit/post-review-n35ryz8v/`.
+
+---
+
+# sak-guard — Research Handoff and State Summary (historical)
 
 **Prepared:** 2026-11-06
 **Status:** PAUSED at owner's direction — work resumes on request
