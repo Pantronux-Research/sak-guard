@@ -1715,13 +1715,49 @@ def test_f7h08_exact_checked_field_is_clean():
 # ─── F7-H09: addition chains must stay linear ───────────────────────────
 
 def test_f7h09_addition_chain_is_linear():
-    """Flattening every Add node re-walked the same subtree: 8,000 terms (16 KB)
-    exceeded ten seconds."""
+    """Flattening every Add node re-walked the same subtree, so a long chain cost
+    O(n^2): 8,000 terms (16 KB) exceeded ten seconds.
+
+    Only run where the parser can build the tree. CPython before 3.12 raises
+    RecursionError during AST construction for a chain this deep, so on those
+    versions the quadratic path is unreachable and the property cannot be
+    measured. `test_f7h09_oversized_chain_never_reports_clean` covers what the
+    tool must do on those versions instead.
+    """
+    import sys
     import time
+
+    if sys.version_info < (3, 12):
+        pytest.skip("CPython <3.12 cannot parse a chain this deep")
+
     code = "value=" + "+".join(["1"] * 8000) + "\n"
     t0 = time.monotonic()
     analyze_patterns(code, "python")
-    assert time.monotonic() - t0 < 5.0, "addition chain is still quadratic"
+    elapsed = time.monotonic() - t0
+    assert elapsed < 5.0, f"addition chain is still quadratic ({elapsed:.1f}s)"
+
+
+def test_f7h09_oversized_chain_never_reports_clean():
+    """A chain deep enough to defeat the parser must fail closed.
+
+    CPython 3.11 raises RecursionError during AST construction well before 3.12+
+    does, so this input is a clean scan on some versions and a parse failure on
+    others. Either is acceptable. A traceback, or a passing verdict from an
+    analysis that never completed, is not.
+    """
+    import subprocess
+    import sys
+
+    code = "value=" + "+".join(["1"] * 8000) + "\n"
+    proc = subprocess.run(
+        [sys.executable, "-m", "sak_guard.cli", "-", "--fail-on", "never"],
+        input=code, capture_output=True, text=True, timeout=120,
+    )
+    assert "Traceback" not in proc.stderr, f"uncaught exception:\n{proc.stderr}"
+    assert proc.returncode in (0, 2), f"unexpected exit {proc.returncode}"
+    if proc.returncode == 2:
+        assert "analysis_error" in proc.stdout, "parse failure was not reported as analysis_error"
+
 
 
 # ─── F7-H10: a disabled bound through a name ────────────────────────────
