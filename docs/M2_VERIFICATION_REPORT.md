@@ -1,5 +1,18 @@
 # M2 Verification Report — Solana Pattern Bank
 
+> **Historical measurement — `sak-guard` v0.1.0-alpha (`280ccc5`).**
+>
+> Every figure in this report was measured against that version's analysis engine.
+> The engine was subsequently replaced (see `sak_guard/dataflow.py`) and two rule
+> families were added (`PS-SOL-4`, `PS-SOL-5`), which changes both what is detected
+> and what is reported on the same corpus.
+>
+> **These figures have not been re-measured against the current engine and do not
+> describe it.** On the same 32-file corpus the current engine reports materially
+> more findings, including from rules that did not exist when this report was
+> written. Current behaviour and its limits are documented in
+> `DETECTION_ENVELOPE.md`. A re-measurement is outstanding.
+
 **Tool:** `sak-guard` v0.1.0-alpha · **Date:** 2026-11-05 · **Commit:** `280ccc5` (+ this report)
 **Scope:** `PS-SOL-1`, `PS-SOL-2a/2b/2c`, `PS-SOL-3`
 
