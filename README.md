@@ -3,7 +3,7 @@
 [![CI](https://github.com/Pantronux-Research/sak-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/Pantronux-Research/sak-guard/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Pantronux-Research/sak-guard/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://github.com/Pantronux-Research/sak-guard/blob/main/pyproject.toml)
-[![PyPI](https://img.shields.io/badge/PyPI-not%20yet%20published-lightgrey.svg)](https://pypi.org/project/sak-guard/)
+[![PyPI](https://img.shields.io/pypi/v/sak-guard.svg)](https://pypi.org/project/sak-guard/)
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)](#status)
 
 **Static pre-commit security guardrail for Solana agent code.**
@@ -40,9 +40,13 @@ The two are **complements, not competitors**. Use both.
 ## Install
 
 ```bash
-# Install this unpublished candidate from the reviewed checkout:
-python -m pip install .
+pip install sak-guard          # 0.2.0a1 is currently the only release
+pip install --pre sak-guard    # once a stable release also exists
+pip install "sak-guard==0.2.0a1"   # pin this exact version
 ```
+
+Published on PyPI under [Trusted Publishing](https://docs.pypi.org/trusted-publishers/)
+(OIDC) — no API token is stored in this repository.
 
 Requires **Python >= 3.10** (see [why the floor is 3.10 rather than 3.9](https://github.com/Pantronux-Research/sak-guard/blob/main/pyproject.toml)).
 

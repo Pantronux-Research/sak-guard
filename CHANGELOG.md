@@ -18,6 +18,8 @@ against `0.1.0a0` (`3895383`). Consumers upgrading from `0.1.0a0` should read
 result as a release decision: the detection envelope is now written down, and it
 is deliberately narrower than "all Solana Python code".
 
+First release published to PyPI, via Trusted Publishing (OIDC).
+
 ### Added
 
 - **`PS-SOL-4` rule family** — reviews the message or transaction that reaches a
