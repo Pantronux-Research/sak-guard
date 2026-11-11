@@ -122,71 +122,13 @@ mode); `prog="sec-audit"` instead of `sak-guard`.
 
 ## 3. The paper
 
-`paper/paper.tex` — **TechRxiv preprint**, `\documentclass[conference]{IEEEtran}`,
-self-contained (BibTeX embedded in a `filecontents*` block).
-
-**Title:** *AST-Driven Static Analysis and Taint Tracking for Autonomous Agent
-Execution Layers in Decentralized Systems: The `sak-guard` Pre-Commit Guardrail
-for Solana Agent Kit*
-
-**Sections:** I Introduction · II Related Work and Theoretical Framing ·
-III Threat Model and Taxonomy · IV Detection Engine Architecture ·
-V Empirical Evaluation · VI Limitations and Threats to Validity ·
-VII Conclusion and Future Work
-
-**Terminology established:** PS-SOL-3 is framed as **inference artefact
-provenance**; the dataflow rules are a **provenance verification gate**; the sink
-set is the **transaction layer's trust boundary**. The artefacts tracked are
-**heterogeneous inference artefacts** (a completion, a tool parameter extracted
-from it, a `json.loads` subscript).
-
-**Compilation (verified, Docker `texlive/texlive`):**
-```
-7 pages · 27 bibitems · 0 undefined citations · 0 undefined references
-0 overfull hbox · 11 underfull · recency 24/27 = 89% (target >=80%)
-```
-
-**Build:** `paper/build.sh` — clears generated files first, falls back to Docker
-when `pdflatex` is absent. **Never build by hand on a tree that already contains
-a `references.bib`** (see §6).
-
-**Future-work direction anchored:** a shared specification layer — write defect
-families once as an artefact schema and express rules as OWL/SHACL constraints,
-checkable statically, against runtime traces, and over post-incident evidence.
-This is the stated **doctoral direction**: inference-artefact integrity and
-provenance for autonomous agent systems.
+The research paper is developed outside this repository. It is deliberately not
+tracked here, and will be published with a stable release rather than an alpha —
+the package and the paper keep independent release cadences.
 
 ---
 
-## 4. Bibliography state
-
-27 entries. Every one resolved through CrossRef or OpenAlex — **none written
-from memory**. arXiv DOIs live at DataCite, not CrossRef.
-
-**Paywalled (8):** `firmansyah2024forensic`, `yang2024falsepositives`,
-`borlakova2026comparative`, `liu2025bidirectional`, `kuhne2022multilevel`,
-`ulain2024featureselection`, `zhao2025soleker`, `yang2024sokai`.
-
-**Reading audit:** 27 cited · 19 obtainable · 16 read in full or at abstract
-level · 3 partial · 8 metadata only. See `paper/CITATION_AUDIT.tex`.
-
-**Errors found by reading (fixed in `c6bc1e8`):**
-1. `zou2023universal` listed 4 authors — the paper has **6** (Carlini, Nasr missing).
-2. `yang2024falsepositives` listed 7 — **two did not exist** (Jin, Chen) and one real
-   author (Sun) was missing. Corrected to 5.
-3. `hou2024llmse` was cited for a thesis it does not advance (it is an SLR of LLMs
-   across SE). Claim rewritten.
-
-**Known issue to resolve:** the paper cites `ulain2024featureselection` (CCIS 2024,
-feature *selection*). The stronger and more accurate citation is her
-**IEEE Computational Intelligence Magazine 19(3):26–41, 2024** paper
-(interpretable feature *vectors*) — DOI `10.1109/mci.2024.3401342`, Xplore id
-needed, paywalled at Xplore; free TechRxiv preprint 403s to automated fetch.
-Shortlist written up in `paper/UL_AIN_CITATION_SHORTLIST.md`.
-
----
-
-## 5. Pending work
+## 4. Pending work
 
 ### Blocked on owner action
 
@@ -200,16 +142,6 @@ Shortlist written up in `paper/UL_AIN_CITATION_SHORTLIST.md`.
    submissions, zero funds) — owner decided to leave them dormant. No self-service
    removal exists.
 
-### Papers to retrieve (ranked by impact if read)
-
-| Work | DOI / ID | Why it matters |
-|---|---|---|
-| **Soleker** ASE 2025 | `10.1109/ase63991.2025.00209`, Xplore **11334576** | closest related work; its abstract confirms it analyses contract *bytecode*, which is what makes our client-layer gap real — but full text unread |
-| **Ul Ain** IEEE CIM 2024 | `10.1109/mci.2024.3401342` | stronger citation than the CCIS paper currently used |
-| **Yang et al.** SANER 2024 | `10.1109/saner60148.2024.00075` | invoked as methodological precedent |
-| **Kühne** SoSyM 2022 | `10.1007/s10270-021-00951-5` | anchors the doctoral direction |
-| *lower risk* | borlakova, liu, yang2024sokai, cao, gandhi | cited as field context |
-
 ### Technical, not blocking
 
 - PS-SOL-2c precision (3/5) — a genuine improvement target; the failure mode is
@@ -220,7 +152,7 @@ Shortlist written up in `paper/UL_AIN_CITATION_SHORTLIST.md`.
 
 ---
 
-## 6. Traps learned (do not re-learn these)
+## 5. Traps learned (do not re-learn these)
 
 - **`filecontents*` does NOT overwrite an existing `references.bib`.** A stale
   copy silently shadows the embedded block and `bibtex` drops whatever changed in
@@ -245,27 +177,34 @@ Shortlist written up in `paper/UL_AIN_CITATION_SHORTLIST.md`.
 
 ---
 
-## 7. Where everything lives
+## 6. Where everything lives
 
 ```
 /home/kuro/recon/sak-guard/            release tree (public repo)
-  sak_guard/{analyzer,strategies,cli,solana,__init__}.py
-  tests/{test_cli.py,test_solana_patterns.py,fixtures/}
-  docs/{SOLANA_PATTERN_BANK_SPEC.md,M2_VERIFICATION_REPORT.md}
-  paper/{paper.tex,build.sh,CITATION_AUDIT.tex,UL_AIN_CITATION_SHORTLIST.md,README.md}
+  sak_guard/{analyzer,dataflow,limits,worker,solana,strategies,cli}.py
+  tests/{test_cli.py,test_solana_patterns.py,test_audit_regressions.py,fixtures/}
+  docs/{DETECTION_ENVELOPE.md,SOLANA_PATTERN_BANK_SPEC.md,M2_VERIFICATION_REPORT.md}
   .github/workflows/{publish.yml,ci.yml}
-  .pre-commit-hooks.yaml  pyproject.toml  README.md  SECURITY.md  LICENSE
+  .pre-commit-hooks.yaml  pyproject.toml  README.md  CHANGELOG.md
+  SECURITY.md  LICENSE  NOTICE
 
+/home/kuro/recon/paper/                 paper sources — outside the repo, not tracked
+/home/kuro/recon/SAK_GUARD_HANDOFF.pdf  handoff PDF — outside the repo, not tracked
 /home/kuro/recon/SAK_GUARD_GRANT_APPLICATION.md    ($4k / 2 milestones)
 /home/kuro/recon/SOLANA_RECON_DOSSIER.md
 /home/kuro/recon/ACCIDENTAL_AGENT_ACCOUNTS.md
 /home/kuro/recon/fpcheck/real/                     32-file evaluation corpus
 ```
 
-**Commits of record:** `c6bc1e8` (citation corrections) · `c6bc1e8`-1 `8fbcb11`
-(II-A recalibration + VUW citations) · `6c9b06a` (verified DOI + build.sh) ·
-`05919a3` (UAT fixes) · `ba9eba3` (base-bank fixes, precision 73%) ·
-`280ccc5` (M2 pattern bank) · `v0.1.0-alpha` tag.
+The paper is intentionally kept out of the repository: it ships with a stable
+release, not an alpha, so the package and the paper keep independent cadences.
+
+**Commits of record:** `280ccc5` (M2 pattern bank, tag `v0.1.0-alpha`) ·
+`6d656a1` (0.2.0a1, tag `v0.2.0-alpha.1`).
+
+History was rewritten on 2026-11-11 to remove the paper sources and the handoff
+PDF. Hashes recorded before that date no longer exist; a mirror backup is at
+`/home/kuro/recon/_sak-guard-backup-20261111/`.
 
 **One-line resume:** the tool works and is measured; the paper is submission-ready
 except for four paywalled papers worth reading and the PyPI publisher link; the
