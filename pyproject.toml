@@ -17,7 +17,7 @@ keywords = [
   "solana", "security", "static-analysis", "solana-agent-kit",
   "linter", "guardrail", "pre-commit", "ai-agents",
 ]
-authors = [{ name = "Pantronux Research (Lead: Irfan Achmad Firmansyah)" }]
+authors = [{ name = "Pantronux Research" }]
 # No contact address on 0.1.0a0: no lab mailbox exists yet. Deliberately omitted
 # rather than invented -- a placeholder on a domain we do not own would surface on
 # the PyPI page and in the grant record. Add a real one before the 0.1.0 release.

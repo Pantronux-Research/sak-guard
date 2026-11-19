@@ -58,7 +58,6 @@ not a competitor. The firewall decides whether a transaction may execute;
 `sak-guard` decides whether the code that builds it should be merged.
 
 **Applicant / entity (for the grant):**
-- Name: Irfan Achmad Firmansyah
 - Entity: Pantronux Research (Solo Builder)
 - Region: Indonesia
 - Wallet: `Ca6GSvPdnkKX3zSbqt6aPVzkmLXNoBaaP62hxPY3RbLd`

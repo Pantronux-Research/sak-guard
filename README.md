@@ -186,4 +186,4 @@ Apache-2.0. See [LICENSE](LICENSE).
 
 ---
 
-*Pantronux Research (Lead: Irfan Achmad Firmansyah) — Indonesia*
+*Pantronux Research — Indonesia*
