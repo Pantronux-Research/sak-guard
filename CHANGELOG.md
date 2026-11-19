@@ -10,6 +10,13 @@ new rule families and engine changes, and the patch version carries corrections.
 A pre-release suffix (`aN`) marks a candidate that has not yet been validated
 against a broad external corpus.
 
+## 0.2.0a2
+
+### Fixed
+
+- Recognize supported `pathlib` joins so they are not reported as possible
+  division by zero. Arithmetic and ambiguous operands retain the existing advisory.
+
 ## [0.2.0a1] - 2026-11-11
 
 Second alpha. The analysis engine was replaced and the rule set roughly doubled

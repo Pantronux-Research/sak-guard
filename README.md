@@ -9,7 +9,7 @@
 **Static pre-commit security guardrail for Solana agent code.**
 The static complement to a runtime transaction firewall.
 
-> **Status: 0.2.0a1 release candidate.** Five Solana rule families are implemented.
+> **Status: 0.2.0a2 release candidate.** Five Solana rule families are implemented.
 > This is an alpha heuristic guardrail. Read the [detection envelope](docs/DETECTION_ENVELOPE.md)
 > before using a passing result as a release decision.
 
@@ -40,9 +40,8 @@ The two are **complements, not competitors**. Use both.
 ## Install
 
 ```bash
-pip install sak-guard          # 0.2.0a1 is currently the only release
-pip install --pre sak-guard    # once a stable release also exists
-pip install "sak-guard==0.2.0a1"   # pin this exact version
+pip install --pre sak-guard      # latest published pre-release
+pip install "sak-guard==0.2.0a2"  # pin this candidate once published
 ```
 
 Published on PyPI under [Trusted Publishing](https://docs.pypi.org/trusted-publishers/)

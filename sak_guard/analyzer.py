@@ -496,9 +496,103 @@ def _ast_division_lines(code: str, *, tree=None):
             tree = _ast.parse(code)
     except SyntaxError:
         return None
-    lines = set()
+    from collections import Counter
+
+    # Only use unambiguous bindings. A second binding anywhere in the file
+    # forfeits this advisory exemption rather than needing full type inference.
+    bindings = Counter()
     for node in _ast.walk(tree):
+        if isinstance(node, _ast.Name) and isinstance(node.ctx, (_ast.Store, _ast.Del)):
+            bindings[node.id] += 1
+        elif isinstance(node, _ast.arg):
+            bindings[node.arg] += 1
+        elif isinstance(node, _ast.alias):
+            bindings[node.asname or node.name.split('.')[0]] += 1
+        elif isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef,
+                               _ast.ExceptHandler, _ast.MatchAs, _ast.MatchStar)):
+            bindings[node.name] += 1
+        elif isinstance(node, _ast.MatchMapping):
+            bindings[node.rest] += 1
+
+    classes = {'Path', 'PurePath', 'PosixPath', 'WindowsPath',
+               'PurePosixPath', 'PureWindowsPath'}
+    modules, constructors, module_paths = {}, {}, {}
+
+    def path_constructor(expr):
+        if isinstance(expr, _ast.Name):
+            return constructors.get(expr.id, float('inf')) < expr.lineno
+        return (isinstance(expr, _ast.Attribute) and expr.attr in classes
+                and isinstance(expr.value, _ast.Name)
+                and modules.get(expr.value.id, float('inf')) < expr.lineno)
+
+    def path_expr(expr, parameters, cache):
+        # Follow only operations whose pathlib return type is known. Iterative
+        # descent keeps long join chains off the Python call stack.
+        seen = []
+        while expr not in cache:
+            seen.append(expr)
+            if isinstance(expr, _ast.Name):
+                result = (expr.id in parameters
+                          or module_paths.get(expr.id, float('inf')) < expr.lineno)
+                break
+            if isinstance(expr, _ast.Call):
+                if path_constructor(expr.func):
+                    result = True
+                    break
+                if isinstance(expr.func, _ast.Attribute) and expr.func.attr in {
+                    'resolve', 'absolute', 'expanduser', 'joinpath', 'with_name', 'with_suffix'
+                }:
+                    expr = expr.func.value
+                    continue
+            if isinstance(expr, _ast.Attribute) and expr.attr == 'parent':
+                expr = expr.value
+            elif isinstance(expr, _ast.BinOp) and isinstance(expr.op, _ast.Div):
+                expr = expr.left
+            else:
+                result = False
+                break
+        else:
+            result = cache[expr]
+        cache.update(dict.fromkeys(seen, result))
+        return result
+
+    for node in tree.body:
+        if isinstance(node, _ast.Import):
+            for alias in node.names:
+                name = alias.asname or alias.name
+                if alias.name == 'pathlib' and bindings[name] == 1:
+                    modules[name] = node.lineno
+        elif isinstance(node, _ast.ImportFrom) and node.module == 'pathlib' and node.level == 0:
+            for alias in node.names:
+                name = alias.asname or alias.name
+                if alias.name in classes and bindings[name] == 1:
+                    constructors[name] = node.lineno
+        elif (isinstance(node, _ast.Assign) and len(node.targets) == 1
+              and isinstance(node.targets[0], _ast.Name)
+              and bindings[node.targets[0].id] == 1 and path_expr(node.value, (), {})):
+            module_paths[node.targets[0].id] = node.lineno
+
+    lines = set()
+    stack = [(tree, frozenset())]
+    paths = {}
+    while stack:
+        node, parameters = stack.pop()
+        if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+            args = node.args
+            own = frozenset(arg.arg for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]
+                            if bindings[arg.arg] == 1 and path_constructor(arg.annotation))
+            stack.extend((item, own) for item in node.body)
+            body = set(node.body)
+            stack.extend((item, parameters) for item in _ast.iter_child_nodes(node)
+                         if item not in body)
+            continue
+        if isinstance(node, (_ast.ClassDef, _ast.Lambda, _ast.ListComp, _ast.SetComp,
+                             _ast.DictComp, _ast.GeneratorExp)):
+            parameters = frozenset()
+        stack.extend((item, parameters) for item in _ast.iter_child_nodes(node))
         if isinstance(node, _ast.BinOp) and isinstance(node.op, _ast.Div):
+            if path_expr(node.left, parameters, paths):
+                continue
             # divisor must be a genuine runtime variable. Excluded:
             #  - plain literals (/2)
             #  - module-level UPPER_CASE constants (LAMPORTS_PER_SOL): those are
